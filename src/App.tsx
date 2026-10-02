@@ -105,7 +105,7 @@ function AssetsPage(){
   setAssets((r.data||[]) as AssetDetail[]);
   setSites((s.data||[]) as Site[]);
  }
- useEffect(()=>{void load()},[]);
+ useEffect(()=>{void load();const channel=supabase!.channel("shared-assets-live").on("postgres_changes",{event:"*",schema:"public",table:"assets"},()=>void load()).subscribe();return()=>{void supabase!.removeChannel(channel)}},[]);
  const filtered=assets.filter(a=>(siteFilter==="all"||a.site_id===siteFilter)&&[a.name,a.asset_tag,a.asset_class||"",a.manufacturer||"",a.model||""].join(" ").toLowerCase().includes(query.toLowerCase()));
  if(selected) return <AssetDetailPage asset={selected} onBack={()=>{setSelected(null);setEditing(false)}} onSaved={async()=>{setSelected(null);setEditing(false);await load()}} editing={editing} setEditing={setEditing} sites={sites}/>;
  return <div>
