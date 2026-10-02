@@ -9,7 +9,7 @@ Prerequisites: Node.js 24, Docker, and the Supabase CLI.
 1. Install JavaScript dependencies:
 
    ```sh
-   npm ci
+   npm install
    ```
 
 2. Start the local Supabase stack and apply the tracked migrations and development seed:
@@ -27,7 +27,7 @@ Prerequisites: Node.js 24, Docker, and the Supabase CLI.
    npm run dev
    ```
 
-The local seed creates a demo site, area, production line, and asset. It contains no user accounts; create a local account through the app. Local email confirmation is disabled in `supabase/config.toml` for development.
+The local seed creates a demo site with its state and time zone, area, production line, and asset. The Technical Library supports private site-scoped manuals, prints, procedures, specifications, and other reliability references with searchable source and revision metadata. It contains no user accounts; create a local account through the app. Local email confirmation is disabled in `supabase/config.toml` for development.
 
 ## Build
 
@@ -39,7 +39,7 @@ GitHub Actions builds on Node.js 24. The Pages workflow deploys the `main` branc
 
 ## Database changes
 
-Schema changes belong in timestamped files under `supabase/migrations`. The migration history in this repository mirrors the linked development database, followed by the latest shared-workspace permissions migration. Keep development seed data in `supabase/seed.sql`; never include user records, credentials, or production data there.
+Schema changes belong in timestamped files under `supabase/migrations`. The migration history mirrors the linked development database and includes forward migrations for shared-workspace permissions, site state, and the private Technical Library. Keep development seed data in `supabase/seed.sql`; never include user records, credentials, or production data there.
 
 Use `supabase db reset` only against the local development stack. Review remote migration changes before applying them to a shared or production project.
 
