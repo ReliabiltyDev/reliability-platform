@@ -1,3 +1,6 @@
+alter table public.assets drop constraint if exists assets_asset_tag_key;
+alter table public.assets add constraint assets_site_asset_tag_key unique (site_id, asset_tag);
+
 -- Shared workspace permissions and personal workspace rules
 create or replace function private.has_role(p_role app_role)
 returns boolean
