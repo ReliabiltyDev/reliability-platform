@@ -55,7 +55,7 @@ function Dashboard(){
 
  return <div>
   <div className="hero">
-   <div><p className="eyebrow">RELIABILITY OVERVIEW</p><h1>Good morning.</h1><p className="muted">Connected to your Supabase reliability workspace.</p></div>
+   <div><p className="eyebrow">RELIABILITY OVERVIEW</p><h1>Reliability Workspace</h1><p className="muted">Connected to your Supabase reliability workspace.</p></div>
    <button className="primary"><span>+</span> Log activity</button>
   </div>
   {error&&<div className="notice error wide">{error}</div>}
