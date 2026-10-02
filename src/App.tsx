@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type React from "react";
 import { Activity, AlertTriangle, BarChart3, CalendarDays, ChevronRight, ClipboardCheck, FileText, Gauge, LayoutDashboard, Menu, PackageSearch, Search, Settings, ShieldCheck, Wrench, X } from "lucide-react";
 
 type Section={id:string;label:string;icon:React.ComponentType<{size?:number}>};
