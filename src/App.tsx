@@ -30,10 +30,10 @@ function AuthScreen(){
 function AuthenticatedApp({session}:{session:any}){
  useEffect(()=>{ void supabase!.rpc("bootstrap_demo_workspace"); },[session.user.id]);
  const [active,setActive]=useState("dashboard"); const [open,setOpen]=useState(false); const current=sections.find(s=>s.id===active)!;
- return <div className="app"><aside className={open?"sidebar open":"sidebar"}><div className="brand"><div className="mark">R</div><div><strong>Reliability</strong><span>Engineering Platform</span></div><button className="icon mobile-close" onClick={()=>setOpen(false)}><X/></button></div><nav>{sections.map(s=>{const I=s.icon;return <button className={active===s.id?"nav active":"nav"} key={s.id} onClick={()=>{setActive(s.id);setOpen(false)}}><I size={19}/><span>{s.label}</span></button>})}</nav><div className="sidebar-bottom"><button className="nav" onClick={()=>supabase!.auth.signOut()}><LogOut size={19}/><span>Sign out</span></button><div className="environment"><span className="dot"/>Connected workspace</div></div></aside><main className="main"><header><button className="icon menu-btn" onClick={()=>setOpen(true)}><Menu/></button><div className="crumb"><span>Reliability Platform</span><ChevronRight size={16}/><b>{current.label}</b></div><div className="header-actions"><button className="icon"><Search/></button><div className="avatar">{(session.user.email||"RE").slice(0,2).toUpperCase()}</div></div></header><div className="content">{active==="dashboard"?<Dashboard/>:active==="assets"?<AssetsPage/>:active==="sites"?<SitesPage/>:active==="import"?<ImportCenter/>:active==="visits"?<VisitsPage/>:active==="notes"?<NotesPage/>:<SectionPage section={current}/>}</div></main></div>
+ return <div className="app"><aside className={open?"sidebar open":"sidebar"}><div className="brand"><div className="mark">R</div><div><strong>Reliability</strong><span>Engineering Platform</span></div><button className="icon mobile-close" onClick={()=>setOpen(false)}><X/></button></div><nav>{sections.map(s=>{const I=s.icon;return <button className={active===s.id?"nav active":"nav"} key={s.id} onClick={()=>{setActive(s.id);setOpen(false)}}><I size={19}/><span>{s.label}</span></button>})}</nav><div className="sidebar-bottom"><button className="nav" onClick={()=>supabase!.auth.signOut()}><LogOut size={19}/><span>Sign out</span></button><div className="environment"><span className="dot"/>Connected workspace</div></div></aside><main className="main"><header><button className="icon menu-btn" onClick={()=>setOpen(true)}><Menu/></button><div className="crumb"><span>Reliability Platform</span><ChevronRight size={16}/><b>{current.label}</b></div><div className="header-actions"><button className="icon"><Search/></button><div className="avatar">{(session.user.email||"RE").slice(0,2).toUpperCase()}</div></div></header><div className="content">{active==="dashboard"?<Dashboard onNavigate={setActive}/>:active==="assets"?<AssetsPage/>:active==="sites"?<SitesPage/>:active==="import"?<ImportCenter/>:active==="visits"?<VisitsPage/>:active==="notes"?<NotesPage/>:<SectionPage section={current}/>}</div></main></div>
 }
 
-function Dashboard(){
+function Dashboard({onNavigate}:{onNavigate:(section:string)=>void}){
  const [sites,setSites]=useState<Site[]>([]);
  const [assets,setAssets]=useState<Asset[]>([]);
  const [error,setError]=useState("");
@@ -60,33 +60,33 @@ function Dashboard(){
   </div>
   {error&&<div className="notice error wide">{error}</div>}
   <div className="grid metrics">
-   <div className="metric"><div className="metric-top"><span>Sites</span><ShieldCheck size={17}/></div><strong>{sites.length}</strong><small>Sites you can access</small></div>
-   <div className="metric"><div className="metric-top"><span>Assets</span><PackageSearch size={17}/></div><strong>{assets.length}</strong><small>Assets visible in workspace</small></div>
-   <div className="metric"><div className="metric-top"><span>Critical assets</span><AlertTriangle size={17}/></div><strong>{assets.filter(a=>(a.criticality||0)>=4).length}</strong><small>Criticality 4–5</small></div>
+   <button type="button" className="metric metric-action" onClick={()=>onNavigate("sites")} aria-label="Open sites"><div className="metric-top"><span>Sites</span><ShieldCheck size={17}/></div><strong>{sites.length}</strong><small>Sites you can access</small></button>
+   <button type="button" className="metric metric-action" onClick={()=>onNavigate("assets")} aria-label="Open assets"><div className="metric-top"><span>Assets</span><PackageSearch size={17}/></div><strong>{assets.length}</strong><small>Assets visible in workspace</small></button>
+   <button type="button" className="metric metric-action" onClick={()=>onNavigate("assets")} aria-label="Open critical assets"><div className="metric-top"><span>Critical assets</span><AlertTriangle size={17}/></div><strong>{assets.filter(a=>(a.criticality||0)>=4).length}</strong><small>Criticality 4–5</small></button>
    <div className="metric"><div className="metric-top"><span>Workspace</span><BarChart3 size={17}/></div><strong>Live</strong><small>Supabase connected</small></div>
   </div>
   <div className="two-col">
    <section className="panel"><div className="panel-head"><div><h2>Sites</h2><p>Authorized operating locations</p></div></div>
-    {sites.length>0 ? <div className="list">{sites.map(s=><Item key={s.id} title={s.name} detail={s.code} tag="Active"/>)}</div> : <Empty text="No site access has been assigned to this account yet."/>}
+    {sites.length>0 ? <div className="list">{sites.map(s=><Item key={s.id} title={s.name} detail={s.code} tag="Active" onClick={()=>onNavigate("sites")}/>)}</div> : <Empty text="No site access has been assigned to this account yet."/>}
    </section>
    <section className="panel"><div className="panel-head"><div><h2>Assets</h2><p>Current asset records</p></div></div>
-    {assets.length>0 ? <div className="list">{assets.slice(0,6).map(a=><Item key={a.id} title={a.name} detail={a.asset_tag+(a.asset_class?" · "+a.asset_class:"")} tag={a.status}/>)}</div> : <Empty text="No assets are visible yet. Site membership controls access."/>}
+    {assets.length>0 ? <div className="list">{assets.slice(0,6).map(a=><Item key={a.id} title={a.name} detail={a.asset_tag+(a.asset_class?" · "+a.asset_class:"")} tag={a.status} onClick={()=>onNavigate("assets")}/>)}</div> : <Empty text="No assets are visible yet. Site membership controls access."/>}
    </section>
   </div>
   <section className="panel quick"><div className="panel-head"><div><h2>Next build layer</h2><p>The live application will expand from this connected foundation.</p></div></div>
    <div className="quick-grid">
-    <Quick title="Asset hierarchy" text="Site → area → line → machine → subsystem → component"/>
-    <Quick title="Failure management" text="Failures, modes, causes, downtime and RCA"/>
-    <Quick title="Technical library" text="Specs, lubricants, documents and source references"/>
-    <Quick title="Maximo bridge" text="CSV/Excel import first, API integration later"/>
+    <Quick title="Asset hierarchy" text="Site → area → line → machine → subsystem → component" onClick={()=>onNavigate("assets")}/>
+    <Quick title="Failure management" text="Failures, modes, causes, downtime and RCA" onClick={()=>onNavigate("reliability")}/>
+    <Quick title="Technical library" text="Specs, lubricants, documents and source references" onClick={()=>onNavigate("technical")}/>
+    <Quick title="Maximo bridge" text="CSV/Excel import first, API integration later" onClick={()=>onNavigate("maximo")}/>
    </div>
   </section>
  </div>
 }
 
 function Empty({text}:{text:string}){return <div className="empty">{text}</div>}
-function Item({title,detail,tag}:{title:string;detail:string;tag:string}){return <div className="list-row"><div className="row-icon"><Activity size={17}/></div><div className="row-copy"><b>{title}</b><span>{detail}</span></div><span className="tag">{tag}</span></div>}
-function Quick({title,text}:{title:string;text:string}){return <button className="quick-card"><b>{title}</b><span>{text}</span><ChevronRight size={17}/></button>}
+function Item({title,detail,tag,onClick}:{title:string;detail:string;tag:string;onClick:()=>void}){return <button type="button" className="list-row list-row-button" onClick={onClick}><span className="row-icon"><Activity size={17}/></span><span className="row-copy"><b>{title}</b><span>{detail}</span></span><span className="tag">{tag}</span><ChevronRight className="row-chevron" size={16}/></button>}
+function Quick({title,text,onClick}:{title:string;text:string;onClick:()=>void}){return <button type="button" className="quick-card" onClick={onClick}><b>{title}</b><span>{text}</span><ChevronRight size={17}/></button>}
 type Area={id:string;site_id:string;code:string;name:string};
 type ProductionLine={id:string;area_id:string;code:string;name:string};
 

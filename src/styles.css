@@ -61,3 +61,10 @@
 @media(max-width:850px){.hierarchy-forms{grid-template-columns:1fr}.tree-branch{margin-left:5px;padding-left:9px}}
 @media(max-width:480px){.hierarchy-form .form-grid{grid-template-columns:1fr}.tree-toolbar{align-items:flex-start;flex-direction:column}}
 
+
+.metric-action{color:inherit;text-align:left;font:inherit;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease}
+.metric-action:hover{box-shadow:0 5px 14px rgba(25,65,53,.1);transform:translateY(-1px)}
+.metric-action:focus-visible,.list-row-button:focus-visible,.quick-card:focus-visible{outline:3px solid #5f9c88;outline-offset:2px}
+.list-row-button{width:100%;background:transparent;border:0;border-top:1px solid #edf1ef;padding:13px 0;text-align:left;font:inherit;color:inherit;cursor:pointer}
+.list-row-button:hover{background:#f8faf9}
+.list-row-button .row-chevron{color:#718079;flex:none}
