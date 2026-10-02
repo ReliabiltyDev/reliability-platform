@@ -9,7 +9,7 @@ Prerequisites: Node.js 24, Docker, and the Supabase CLI.
 1. Install JavaScript dependencies:
 
    ```sh
-   npm install
+   npm ci
    ```
 
 2. Start the local Supabase stack and apply the tracked migrations and development seed:
