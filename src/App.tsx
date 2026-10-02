@@ -55,7 +55,7 @@ function Dashboard(){
 
  return <div>
   <div className="hero">
-   <div><p className="eyebrow">RELIABILITY OVERVIEW</p><h1>Good morning.</h1><p className="muted">Connected to your Supabase reliability workspace.</p></div>
+   <div><p className="eyebrow">RELIABILITY OVERVIEW</p><h1>Reliability Workspace</h1><p className="muted">Connected to your Supabase reliability workspace.</p></div>
    <button className="primary"><span>+</span> Log activity</button>
   </div>
   {error&&<div className="notice error wide">{error}</div>}
@@ -87,41 +87,131 @@ function Dashboard(){
 function Empty({text}:{text:string}){return <div className="empty">{text}</div>}
 function Item({title,detail,tag}:{title:string;detail:string;tag:string}){return <div className="list-row"><div className="row-icon"><Activity size={17}/></div><div className="row-copy"><b>{title}</b><span>{detail}</span></div><span className="tag">{tag}</span></div>}
 function Quick({title,text}:{title:string;text:string}){return <button className="quick-card"><b>{title}</b><span>{text}</span><ChevronRight size={17}/></button>}
+type Area={id:string;site_id:string;code:string;name:string};
+type ProductionLine={id:string;area_id:string;code:string;name:string};
+
 function AssetsPage(){
  const [assets,setAssets]=useState<AssetDetail[]>([]);
  const [sites,setSites]=useState<Site[]>([]);
+ const [areas,setAreas]=useState<Area[]>([]);
+ const [lines,setLines]=useState<ProductionLine[]>([]);
  const [siteFilter,setSiteFilter]=useState("all");
  const [query,setQuery]=useState("");
  const [selected,setSelected]=useState<AssetDetail|null>(null);
  const [editing,setEditing]=useState(false);
  const [error,setError]=useState("");
  async function load(){
-  const [r,s]=await Promise.all([
+  const [r,s,a,l]=await Promise.all([
    supabase!.from("assets").select("id,site_id,asset_tag,name,asset_class,manufacturer,model,serial_number,status,criticality,description,maximo_asset_id,installed_at,parent_asset_id,production_line_id").order("name"),
-   supabase!.from("sites").select("id,code,name").order("name")
+   supabase!.from("sites").select("id,code,name").order("name"),
+   supabase!.from("areas").select("id,site_id,code,name").order("name"),
+   supabase!.from("production_lines").select("id,area_id,code,name").order("name")
   ]);
   if(r.error){setError(r.error.message);return}
   if(s.error){setError(s.error.message);return}
+  if(a.error){setError(a.error.message);return}
+  if(l.error){setError(l.error.message);return}
   setAssets((r.data||[]) as AssetDetail[]);
   setSites((s.data||[]) as Site[]);
+  setAreas((a.data||[]) as Area[]);
+  setLines((l.data||[]) as ProductionLine[]);
+  setError("");
  }
- useEffect(()=>{void load();const channel=supabase!.channel("shared-assets-live").on("postgres_changes",{event:"*",schema:"public",table:"assets"},()=>void load()).subscribe();return()=>{void supabase!.removeChannel(channel)}},[]);
+ useEffect(()=>{void load();const channel=supabase!.channel("shared-assets-live").on("postgres_changes",{event:"*",schema:"public",table:"assets"},()=>void load()).on("postgres_changes",{event:"*",schema:"public",table:"areas"},()=>void load()).on("postgres_changes",{event:"*",schema:"public",table:"production_lines"},()=>void load()).subscribe();return()=>{void supabase!.removeChannel(channel)}},[]);
  const filtered=assets.filter(a=>(siteFilter==="all"||a.site_id===siteFilter)&&[a.name,a.asset_tag,a.asset_class||"",a.manufacturer||"",a.model||""].join(" ").toLowerCase().includes(query.toLowerCase()));
- if(selected) return <AssetDetailPage asset={selected} onBack={()=>{setSelected(null);setEditing(false)}} onSaved={async()=>{setSelected(null);setEditing(false);await load()}} editing={editing} setEditing={setEditing} sites={sites}/>;
+ function startNewAsset(siteId:string,productionLineId:string|null=null){
+  setSelected({id:"",site_id:siteId,asset_tag:"",name:"",asset_class:"",criticality:3,status:"active",parent_asset_id:null,production_line_id:productionLineId,manufacturer:"",model:"",serial_number:"",description:"",maximo_asset_id:"",installed_at:""});
+  setEditing(true);
+ }
+ function selectAsset(asset:AssetDetail){setSelected(asset);setEditing(false)}
+ if(selected) return <AssetDetailPage asset={selected} onBack={()=>{setSelected(null);setEditing(false)}} onSaved={async()=>{setSelected(null);setEditing(false);await load()}} editing={editing} setEditing={setEditing} sites={sites} areas={areas} lines={lines} assets={assets}/>;
+ const locationLabel=(asset:AssetDetail)=>{
+  const line=lines.find(x=>x.id===asset.production_line_id);
+  const area=areas.find(x=>x.id===line?.area_id);
+  const site=sites.find(x=>x.id===asset.site_id);
+  return [site?.name,area?.name,line?.name].filter(Boolean).join(" / ")||"—";
+ };
  return <div>
-  <div className="hero"><div><p className="eyebrow">ASSET MANAGEMENT</p><h1>Assets</h1><p className="muted">Build and maintain the equipment hierarchy that everything else in the platform connects to.</p></div><button className="primary" onClick={()=>{setSelected({id:"",site_id:siteFilter==="all"?(sites[0]?.id||""):siteFilter,asset_tag:"",name:"",asset_class:"",manufacturer:"",model:"",serial_number:"",status:"active",criticality:3,description:"",maximo_asset_id:"",installed_at:"",parent_asset_id:null,production_line_id:null});setEditing(true)}}><Plus size={17}/> Add asset</button></div>
+  <div className="hero"><div><p className="eyebrow">ASSET MANAGEMENT</p><h1>Assets</h1><p className="muted">Organize equipment by site, area, production line, and parent asset.</p></div><button className="primary" onClick={()=>startNewAsset(siteFilter==="all"?(sites[0]?.id||""):siteFilter)}><Plus size={17}/> Add asset</button></div>
   {error&&<div className="notice error wide">{error}</div>}
+  <AssetHierarchyManager sites={sites} areas={areas} lines={lines} assets={assets} onAddAsset={startNewAsset} onSelectAsset={selectAsset} onRefresh={load}/>
   <div className="asset-toolbar"><div className="search-box"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search assets, tags, manufacturers…"/></div><select className="site-filter" value={siteFilter} onChange={e=>setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name} · {s.code}</option>)}</select><div className="toolbar-note">{filtered.length} asset{filtered.length===1?"":"s"}</div></div>
-  <section className="panel"><div className="asset-table-head"><span>Asset</span><span>Site</span><span>Class</span><span>Manufacturer / Model</span><span>Criticality</span><span>Status</span></div>
-   {filtered.length?filtered.map(a=><button className="asset-row" key={a.id||"new"} onClick={()=>{setSelected(a);setEditing(false)}}><div className="asset-main"><div className="row-icon"><PackageSearch size={17}/></div><div><b>{a.name||"New asset"}</b><span>{a.asset_tag||"No asset tag"}</span></div></div><span>{sites.find(s=>s.id===a.site_id)?.name||"—"}</span><span>{a.asset_class||"—"}</span><span>{[a.manufacturer,a.model].filter(Boolean).join(" · ")||"—"}</span><span><span className={a.criticality&&a.criticality>=4?"critical-tag":"tag"}>{a.criticality??"—"}</span></span><span className="tag">{a.status}</span></button>):<Empty text="No assets match your search."/>}
+  <section className="panel"><div className="asset-table-head"><span>Asset</span><span>Location</span><span>Class</span><span>Manufacturer / Model</span><span>Criticality</span><span>Status</span></div>
+   {filtered.length?filtered.map(a=><button className="asset-row" key={a.id||"new"} onClick={()=>selectAsset(a)}><div className="asset-main"><div className="row-icon"><PackageSearch size={17}/></div><div><b>{a.name||"New asset"}</b><span>{a.asset_tag||"No asset tag"}</span></div></div><span>{locationLabel(a)}</span><span>{a.asset_class||"—"}</span><span>{[a.manufacturer,a.model].filter(Boolean).join(" · ")||"—"}</span><span><span className={a.criticality&&a.criticality>=4?"critical-tag":"tag"}>{a.criticality??"—"}</span></span><span className="tag">{a.status}</span></button>):<Empty text="No assets match your search."/>}
   </section>
-  <section className="panel hierarchy-callout"><div className="row-icon"><PackageSearch size={20}/></div><div><h2>Asset hierarchy</h2><p>Site → area → production line → machine → subsystem → component</p></div></section>
  </div>
+}
+
+function AssetHierarchyManager({sites,areas,lines,assets,onAddAsset,onSelectAsset,onRefresh}:{sites:Site[];areas:Area[];lines:ProductionLine[];assets:AssetDetail[];onAddAsset:(siteId:string,lineId?:string|null)=>void;onSelectAsset:(asset:AssetDetail)=>void;onRefresh:()=>Promise<void>}){
+ const [areaSiteId,setAreaSiteId]=useState(sites[0]?.id||"");
+ const [areaCode,setAreaCode]=useState("");
+ const [areaName,setAreaName]=useState("");
+ const [lineAreaId,setLineAreaId]=useState(areas[0]?.id||"");
+ const [lineCode,setLineCode]=useState("");
+ const [lineName,setLineName]=useState("");
+ const [error,setError]=useState("");
+ const [busy,setBusy]=useState(false);
+ useEffect(()=>{if(!areaSiteId&&sites[0])setAreaSiteId(sites[0].id)},[sites,areaSiteId]);
+ useEffect(()=>{if(!lineAreaId&&areas[0])setLineAreaId(areas[0].id)},[areas,lineAreaId]);
+ async function addArea(e:React.FormEvent){
+  e.preventDefault();setError("");setBusy(true);
+  const r=await supabase!.from("areas").insert({site_id:areaSiteId,code:areaCode.trim(),name:areaName.trim()}).select("id").single();
+  if(r.error)setError(r.error.message);
+  else{setAreaCode("");setAreaName("");setLineAreaId(r.data.id);await onRefresh()}
+  setBusy(false);
+ }
+ async function addLine(e:React.FormEvent){
+  e.preventDefault();setError("");setBusy(true);
+  const r=await supabase!.from("production_lines").insert({area_id:lineAreaId,code:lineCode.trim(),name:lineName.trim()}).select("id").single();
+  if(r.error)setError(r.error.message);
+  else{setLineCode("");setLineName("");await onRefresh()}
+  setBusy(false);
+ }
+ return <div className="hierarchy-manager">
+  <section className="panel">
+   <div className="panel-head"><div><h2>Build the location structure</h2><p>Add areas and production lines before assigning equipment.</p></div></div>
+   <div className="hierarchy-forms">
+    <form className="hierarchy-form" onSubmit={addArea}><h3>New area</h3><label>Site<select value={areaSiteId} onChange={e=>setAreaSiteId(e.target.value)} required><option value="">Select site…</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name} · {s.code}</option>)}</select></label><div className="form-grid"><label>Area code<input value={areaCode} onChange={e=>setAreaCode(e.target.value)} required placeholder="AREA-01"/></label><label>Area name<input value={areaName} onChange={e=>setAreaName(e.target.value)} required placeholder="Production area"/></label></div><button className="secondary" disabled={busy||!areaSiteId}>Add area</button></form>
+    <form className="hierarchy-form" onSubmit={addLine}><h3>New production line</h3><label>Area<select value={lineAreaId} onChange={e=>setLineAreaId(e.target.value)} required><option value="">Select area…</option>{areas.map(a=><option key={a.id} value={a.id}>{sites.find(s=>s.id===a.site_id)?.name} / {a.name} · {a.code}</option>)}</select></label><div className="form-grid"><label>Line code<input value={lineCode} onChange={e=>setLineCode(e.target.value)} required placeholder="LINE-01"/></label><label>Line name<input value={lineName} onChange={e=>setLineName(e.target.value)} required placeholder="Production line"/></label></div><button className="secondary" disabled={busy||!lineAreaId}>Add line</button></form>
+   </div>
+   {error&&<div className="notice error wide">{error}</div>}
+  </section>
+  <section className="panel hierarchy-tree">
+   <div className="panel-head"><div><h2>Equipment hierarchy</h2><p>Site → area → production line → parent asset → child asset</p></div></div>
+   {sites.length?sites.map(site=>{
+    const siteAreas=areas.filter(a=>a.site_id===site.id);
+    const looseAssets=assets.filter(a=>a.site_id===site.id&&!a.production_line_id);
+    const looseRoots=looseAssets.filter(a=>!a.parent_asset_id||!looseAssets.some(p=>p.id===a.parent_asset_id));
+    return <details className="hierarchy-node" key={site.id} open><summary><b>{site.name}</b><span>{site.code} · Site</span></summary><div className="tree-branch">
+     {siteAreas.length?siteAreas.map(area=>{
+      const areaLines=lines.filter(l=>l.area_id===area.id);
+      return <details className="hierarchy-node" key={area.id} open><summary><b>{area.name}</b><span>{area.code} · Area</span></summary><div className="tree-branch">
+       {areaLines.length?areaLines.map(line=>{
+        const lineAssets=assets.filter(a=>a.production_line_id===line.id);
+        const roots=lineAssets.filter(a=>!a.parent_asset_id||!lineAssets.some(p=>p.id===a.parent_asset_id));
+        return <details className="hierarchy-node" key={line.id} open><summary><b>{line.name}</b><span>{line.code} · Production line</span></summary><div className="tree-branch">
+         <div className="tree-toolbar"><span>{lineAssets.length} asset{lineAssets.length===1?"":"s"}</span><button className="secondary" onClick={()=>onAddAsset(site.id,line.id)}><Plus size={14}/> Add asset</button></div>
+         {roots.length?roots.map(asset=><AssetTreeNode key={asset.id} asset={asset} assets={lineAssets} onSelect={onSelectAsset}/>):<Empty text="No assets on this line yet."/>}
+        </div></details>
+       }):<Empty text="No production lines in this area yet."/>}
+      </div></details>
+     }):<Empty text="No areas at this site yet."/>}
+     {looseRoots.length>0&&<div className="unassigned-assets"><b>Assets without a production line</b>{looseRoots.map(a=><AssetTreeNode key={a.id} asset={a} assets={looseAssets} onSelect={onSelectAsset}/>)}</div>}
+    </div></details>
+   }):<Empty text="Create a site first, then add its areas and lines."/>}
+  </section>
+ </div>
+}
+
+function AssetTreeNode({asset,assets,onSelect,ancestors=[]}:{asset:AssetDetail;assets:AssetDetail[];onSelect:(asset:AssetDetail)=>void;ancestors?:string[]}){
+ const nextAncestors=[...ancestors,asset.id];
+ const children=assets.filter(a=>a.parent_asset_id===asset.id&&!ancestors.includes(a.id));
+ return <div className="asset-tree-node"><button type="button" className="tree-asset-row" onClick={()=>onSelect(asset)}><span><b>{asset.name}</b><small>{asset.asset_tag} · {asset.asset_class||"Equipment"}</small></span><span className="tag">{asset.criticality?"Criticality "+asset.criticality:asset.status}</span></button>{children.length>0&&<div className="asset-tree-children">{children.map(child=><AssetTreeNode key={child.id} asset={child} assets={assets} onSelect={onSelect} ancestors={nextAncestors}/>)}</div>}</div>
 }
 
 type AssetDetail=Asset & {manufacturer?:string|null;model?:string|null;serial_number?:string|null;description?:string|null;maximo_asset_id?:string|null;installed_at?:string|null;parent_asset_id?:string|null;production_line_id?:string|null};
 
-function AssetDetailPage({asset,onBack,onSaved,editing,setEditing,sites}:{asset:AssetDetail;onBack:()=>void;onSaved:()=>void;editing:boolean;setEditing:(v:boolean)=>void;sites:Site[]}){
+function AssetDetailPage({asset,onBack,onSaved,editing,setEditing,sites,areas,lines,assets}:{asset:AssetDetail;onBack:()=>void;onSaved:()=>void;editing:boolean;setEditing:(v:boolean)=>void;sites:Site[];areas:Area[];lines:ProductionLine[];assets:AssetDetail[]}){
  const [form,setForm]=useState(asset); const [photos,setPhotos]=useState<any[]>([]); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
  useEffect(()=>{setForm(asset); if(asset.id) void loadPhotos()},[asset.id]);
  async function loadPhotos(){const r=await supabase!.from("asset_photos").select("id,storage_path,caption,created_at").eq("asset_id",asset.id).order("created_at",{ascending:false});if(r.error){setError(r.error.message);return}const rows=await Promise.all((r.data||[]).map(async p=>{const s=await supabase!.storage.from("asset-photos").createSignedUrl(p.storage_path,3600);return {...p,url:s.data?.signedUrl}}));setPhotos(rows)}
@@ -146,8 +236,8 @@ function AssetDetailPage({asset,onBack,onSaved,editing,setEditing,sites}:{asset:
   <button className="back-btn" onClick={onBack}><ArrowLeft size={16}/> Back to assets</button>
   <div className="detail-hero"><div><p className="eyebrow">ASSET RECORD</p><h1>{form.name||"New asset"}</h1><p className="muted">{form.asset_tag||"Assign an asset tag"}{form.asset_class?" · "+form.asset_class:""}</p></div><div className="detail-actions">{form.id&&!editing&&<button className="secondary" onClick={()=>setEditing(true)}>Edit asset</button>}{editing&&<button className="primary" disabled={busy} onClick={save}><Save size={16}/>{busy?"Saving…":"Save asset"}</button>}</div></div>
   {error&&<div className="notice error wide">{error}</div>}
-  {editing?<AssetForm form={form} setForm={setForm} sites={sites}/>:<div className="detail-grid">
-   <section className="panel"><div className="panel-head"><div><h2>Asset information</h2><p>Core equipment identity</p></div></div><InfoGrid items={[["Site",sites.find(s=>s.id===form.site_id)?.name||form.site_id],["Asset tag",form.asset_tag],["Class",form.asset_class],["Manufacturer",form.manufacturer],["Model",form.model],["Serial number",form.serial_number],["Criticality",form.criticality],["Status",form.status],["Maximo asset ID",form.maximo_asset_id]]}/><div className="description"><b>Description</b><p>{form.description||"No description has been entered yet."}</p></div></section>
+  {editing?<AssetForm form={form} setForm={setForm} sites={sites} areas={areas} lines={lines} assets={assets}/>:<div className="detail-grid">
+   <section className="panel"><div className="panel-head"><div><h2>Asset information</h2><p>Core equipment identity</p></div></div><InfoGrid items={[["Site",sites.find(s=>s.id===form.site_id)?.name||form.site_id],["Asset tag",form.asset_tag],["Class",form.asset_class],["Manufacturer",form.manufacturer],["Model",form.model],["Serial number",form.serial_number],["Criticality",form.criticality],["Status",form.status],["Area",areas.find(a=>a.id===lines.find(l=>l.id===form.production_line_id)?.area_id)?.name],["Production line",lines.find(l=>l.id===form.production_line_id)?.name],["Parent asset",assets.find(a=>a.id===form.parent_asset_id)?.name],["Maximo asset ID",form.maximo_asset_id]]}/><div className="description"><b>Description</b><p>{form.description||"No description has been entered yet."}</p></div></section>
    <section className="panel"><div className="panel-head"><div><h2>Photos</h2><p>Equipment photos and nameplates</p></div>{form.id&&<label className="upload-btn"><Upload size={15}/> Add photo<input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)void addPhoto(f);e.currentTarget.value=""}}/></label>}</div>
     {photos.length?<div className="photo-grid">{photos.map(p=><div className="photo-card" key={p.id}><img src={p.url||""} alt={p.caption||"Asset photo"}/></div>)}</div>:<div className="photo-empty"><Image size={28}/><span>No photos yet.</span><small>On iPad, use Add photo to choose from Photos or take a picture.</small></div>}
    </section>
@@ -155,10 +245,21 @@ function AssetDetailPage({asset,onBack,onSaved,editing,setEditing,sites}:{asset:
  </div>
 }
 
-function AssetForm({form,setForm,sites}:{form:AssetDetail;setForm:React.Dispatch<React.SetStateAction<AssetDetail>>;sites?:Site[]}){
+function AssetForm({form,setForm,sites,areas,lines,assets}:{form:AssetDetail;setForm:React.Dispatch<React.SetStateAction<AssetDetail>>;sites?:Site[];areas:Area[];lines:ProductionLine[];assets:AssetDetail[]}){
  const set=(key:keyof AssetDetail,value:any)=>setForm(x=>({...x,[key]:value}));
- return <div className="detail-grid"><section className="panel form-panel"><div className="panel-head"><div><h2>Asset information</h2><p>Enter the equipment record</p></div></div><div className="form-grid">
-  <label>Site<select value={form.site_id} onChange={e=>set("site_id",e.target.value)}><option value="">Select site…</option>{sites?.map(s=><option key={s.id} value={s.id}>{s.name} · {s.code}</option>)}</select></label>
+ const [areaId,setAreaId]=useState(lines.find(l=>l.id===form.production_line_id)?.area_id||"");
+ useEffect(()=>{if(form.production_line_id)setAreaId(lines.find(l=>l.id===form.production_line_id)?.area_id||"")},[lines,form.production_line_id]);
+ const availableAreas=areas.filter(a=>a.site_id===form.site_id);
+ const availableLines=lines.filter(l=>l.area_id===areaId);
+ const blockedParentIds=new Set<string>(form.id?[form.id]:[]);
+ let changed=true;
+ while(changed){changed=false;for(const a of assets){if(a.parent_asset_id&&blockedParentIds.has(a.parent_asset_id)&&!blockedParentIds.has(a.id)){blockedParentIds.add(a.id);changed=true}}}
+ const parentOptions=assets.filter(a=>a.id!==form.id&&!blockedParentIds.has(a.id)&&a.site_id===form.site_id&&a.production_line_id===form.production_line_id);
+ return <div className="detail-grid"><section className="panel form-panel"><div className="panel-head"><div><h2>Asset information</h2><p>Enter equipment identity and hierarchy placement.</p></div></div><div className="form-grid">
+  <label>Site<select value={form.site_id} onChange={e=>{set("site_id",e.target.value);set("production_line_id",null);set("parent_asset_id",null);setAreaId("")}}><option value="">Select site…</option>{sites?.map(s=><option key={s.id} value={s.id}>{s.name} · {s.code}</option>)}</select></label>
+  <label>Area<select value={areaId} onChange={e=>{setAreaId(e.target.value);set("production_line_id",null);set("parent_asset_id",null)}}><option value="">No area</option>{availableAreas.map(a=><option key={a.id} value={a.id}>{a.name} · {a.code}</option>)}</select></label>
+  <label>Production line<select value={form.production_line_id||""} onChange={e=>{set("production_line_id",e.target.value||null);set("parent_asset_id",null)}} disabled={!areaId}><option value="">No production line</option>{availableLines.map(l=><option key={l.id} value={l.id}>{l.name} · {l.code}</option>)}</select></label>
+  <label>Parent asset<select value={form.parent_asset_id||""} onChange={e=>set("parent_asset_id",e.target.value||null)}><option value="">No parent (top-level asset)</option>{parentOptions.map(a=><option key={a.id} value={a.id}>{a.asset_tag} · {a.name}</option>)}</select><small>Only assets at the same site and production line can be parents.</small></label>
   <label>Asset tag<input value={form.asset_tag} onChange={e=>set("asset_tag",e.target.value)} placeholder="e.g. P-101"/></label>
   <label>Name<input value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Equipment name"/></label>
   <label>Asset class<input value={form.asset_class||""} onChange={e=>set("asset_class",e.target.value)} placeholder="Press, motor, gearbox…"/></label>
