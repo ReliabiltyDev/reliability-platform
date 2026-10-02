@@ -25,7 +25,7 @@ function AuthScreen(){
 }
 
 function AuthenticatedApp({session}:{session:any}){
- useEffect(()=>{supabase!.rpc("bootstrap_demo_workspace").catch(()=>undefined)},[session.user.id]);
+ useEffect(()=>{ void supabase!.rpc("bootstrap_demo_workspace"); },[session.user.id]);
  const [active,setActive]=useState("dashboard"); const [open,setOpen]=useState(false); const current=sections.find(s=>s.id===active)!;
  return <div className="app"><aside className={open?"sidebar open":"sidebar"}><div className="brand"><div className="mark">R</div><div><strong>Reliability</strong><span>Engineering Platform</span></div><button className="icon mobile-close" onClick={()=>setOpen(false)}><X/></button></div><nav>{sections.map(s=>{const I=s.icon;return <button className={active===s.id?"nav active":"nav"} key={s.id} onClick={()=>{setActive(s.id);setOpen(false)}}><I size={19}/><span>{s.label}</span></button>})}</nav><div className="sidebar-bottom"><button className="nav" onClick={()=>supabase!.auth.signOut()}><LogOut size={19}/><span>Sign out</span></button><div className="environment"><span className="dot"/>Connected workspace</div></div></aside><main className="main"><header><button className="icon menu-btn" onClick={()=>setOpen(true)}><Menu/></button><div className="crumb"><span>Reliability Platform</span><ChevronRight size={16}/><b>{current.label}</b></div><div className="header-actions"><button className="icon"><Search/></button><div className="avatar">{(session.user.email||"RE").slice(0,2).toUpperCase()}</div></div></header><div className="content">{active==="dashboard"?<Dashboard/>:<SectionPage section={current}/>}</div></main></div>
 }
