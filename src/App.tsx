@@ -171,6 +171,5 @@ function AssetForm({form,setForm,sites}:{form:AssetDetail;setForm:React.Dispatch
   <label className="span-2">Description<textarea value={form.description||""} onChange={e=>set("description",e.target.value)} rows={5} placeholder="Describe the equipment, duty, configuration, or other engineering context."/></label>
  </div></section></div>
 }
-function InfoGrid({items}:{items:[string,any][]}){return <div className="info-grid">{items.map(([k,v])=><div key={k}><span>{k}</span><b>{v||"—"}</b></div>)}
-}
+function InfoGrid({items}:{items:[string,any][]}){return <div className="info-grid">{items.map(([k,v])=><div key={k}><span>{k}</span><b>{v||"—"}</b></div>)}</div>}
 function SectionPage({section}:{section:Section}){const I=section.icon;return <div className="empty-page"><div className="page-icon"><I size={28}/></div><p className="eyebrow">MODULE</p><h1>{section.label}</h1><p className="muted">The navigation is live. This module will be connected to its Supabase records and workflows as we build the platform layer by layer.</p><div className="panel roadmap"><h2>Connected foundation</h2><p>Authentication is live, the database is already structured, and access is controlled by site membership. The next records will plug into this shell without rebuilding the application.</p></div></div>}
