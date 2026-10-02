@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Activity, ArrowLeft, BookOpen, CalendarDays, ExternalLink, FileText, Gauge, PackageSearch, Wrench } from "lucide-react";
 import { supabase } from "./lib/supabase";
 
@@ -272,10 +273,10 @@ export default function SiteWorkspace({ site, onBack }: { site: Site; onBack: ()
  </div>;
 }
 
-function Summary({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
+function Summary({ label, value, icon }: { label: string; value: number; icon: ReactNode }) {
  return <div className="site-summary-card"><div><span>{label}</span>{icon}</div><b>{value}</b></div>;
 }
 
-function RecordPanel({ title, icon, items, empty }: { title: string; icon: React.ReactNode; items: { title: string; detail: string }[]; empty: string }) {
+function RecordPanel({ title, icon, items, empty }: { title: string; icon: ReactNode; items: { title: string; detail: string }[]; empty: string }) {
  return <section className="panel"><div className="panel-head"><div><h2>{title}</h2><p>{items.length} record{items.length === 1 ? "" : "s"}</p></div>{icon}</div>{items.length ? <div className="site-record-list">{items.map((item, index) => <article className="site-record compact" key={title + index}><h3>{item.title}</h3><p>{item.detail || "No additional details"}</p></article>)}</div> : <div className="empty">{empty}</div>}</section>;
 }
