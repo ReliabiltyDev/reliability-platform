@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import type React from "react";
-import { Activity, AlertTriangle, ArrowLeft, BarChart3, CalendarDays, ChevronRight, ClipboardCheck, FileText, Gauge, Image, LayoutDashboard, LogOut, Menu, PackageSearch, Plus, Save, Search, ShieldCheck, Upload, UserPlus, Wrench, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, BarChart3, CalendarDays, ChevronRight, ClipboardCheck, FileText, FileSpreadsheet, Gauge, Image, LayoutDashboard, LogOut, Menu, PackageSearch, Plus, Save, Search, ShieldCheck, Upload, UserPlus, Wrench, X } from "lucide-react";
 import { supabase } from "./lib/supabase";
-import * as XLSX from "xlsx";
+import { default as XLSX } from "xlsx";
+import SitesPage from "./SitesPage";
+import ImportCenter from "./ImportCenter";
+import { VisitsPage, NotesPage } from "./PersonalPages";
 
 type Section={id:string;label:string;icon:React.ComponentType<{size?:number}>};
 const sections:Section[]=[
