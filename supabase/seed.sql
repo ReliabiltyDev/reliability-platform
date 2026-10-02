@@ -1,11 +1,12 @@
 -- Minimal development-only data for the hierarchy UI.
 -- Natural keys keep this safe to re-run and avoid hard-coded generated IDs.
 
-insert into public.sites (code, name, description, timezone)
-values ('DEMO-01', 'Demo Reliability Site', 'Local development workspace', 'America/Chicago')
+insert into public.sites (code, name, description, state, timezone)
+values ('DEMO-01', 'Demo Reliability Site', 'Local development workspace', 'Illinois', 'America/Chicago')
 on conflict (code) do update
 set name = excluded.name,
     description = excluded.description,
+    state = excluded.state,
     timezone = excluded.timezone;
 
 insert into public.areas (site_id, code, name, description)
