@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type React from "react";
-import { Activity, AlertTriangle, ArrowLeft, BarChart3, BookOpen, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, FileText, FileSpreadsheet, FileUp, Gauge, Image, LayoutDashboard, LogOut, Menu, PackageSearch, Plus, Save, Search, ShieldCheck, Upload, UserPlus, Wrench, X } from "lucide-react";
+import { Activity, AlertTriangle, ArrowLeft, BarChart3, BookOpen, CalendarDays, ChevronRight, ClipboardCheck, ExternalLink, FileText, FileSpreadsheet, FileUp, Gauge, Image, LayoutDashboard, LogOut, Menu, MessageSquare, PackageSearch, Plus, Save, Search, ShieldCheck, Upload, UserPlus, Wrench, X } from "lucide-react";
 import { supabase } from "./lib/supabase";
 import SitesPage from "./SitesPage";
 import ImportCenter from "./ImportCenter";
@@ -29,10 +29,35 @@ function AuthScreen(){
 
 function AuthenticatedApp({session}:{session:any}){
  useEffect(()=>{ void supabase!.rpc("bootstrap_demo_workspace"); },[session.user.id]);
- const [active,setActive]=useState("dashboard"); const [open,setOpen]=useState(false); const current=sections.find(s=>s.id===active)!;
- return <div className="app"><aside className={open?"sidebar open":"sidebar"}><div className="brand"><div className="mark">R</div><div><strong>Reliability</strong><span>Engineering Platform</span></div><button className="icon mobile-close" onClick={()=>setOpen(false)}><X/></button></div><nav>{sections.map(s=>{const I=s.icon;return <button className={active===s.id?"nav active":"nav"} key={s.id} onClick={()=>{setActive(s.id);setOpen(false)}}><I size={19}/><span>{s.label}</span></button>})}</nav><div className="sidebar-bottom"><button className="nav" onClick={()=>supabase!.auth.signOut()}><LogOut size={19}/><span>Sign out</span></button><div className="environment"><span className="dot"/>Connected workspace</div></div></aside><main className="main"><header><button className="icon menu-btn" onClick={()=>setOpen(true)}><Menu/></button><div className="crumb"><span>Reliability Platform</span><ChevronRight size={16}/><b>{current.label}</b></div><div className="header-actions"><button className="icon"><Search/></button><div className="avatar">{(session.user.email||"RE").slice(0,2).toUpperCase()}</div></div></header><div className="content">{active==="dashboard"?<Dashboard onNavigate={setActive}/>:active==="assets"?<AssetsPage/>:active==="sites"?<SitesPage/>:active==="import"?<ImportCenter/>:active==="technical"?<TechnicalLibraryPage/>:active==="visits"?<VisitsPage/>:active==="notes"?<NotesPage/>:<SectionPage section={current}/>}</div></main></div>
+ const [active,setActive]=useState("dashboard"); const [open,setOpen]=useState(false); const [feedbackOpen,setFeedbackOpen]=useState(false); const current=sections.find(s=>s.id===active)!;
+ return <div className="app"><aside className={open?"sidebar open":"sidebar"}><div className="brand"><div className="mark">R</div><div><strong>Reliability</strong><span>Engineering Platform</span></div><button className="icon mobile-close" onClick={()=>setOpen(false)}><X/></button></div><nav>{sections.map(s=>{const I=s.icon;return <button className={active===s.id?"nav active":"nav"} key={s.id} onClick={()=>{setActive(s.id);setOpen(false)}}><I size={19}/><span>{s.label}</span></button>})}</nav><div className="sidebar-bottom"><button className="nav" onClick={()=>supabase!.auth.signOut()}><LogOut size={19}/><span>Sign out</span></button><div className="environment"><span className="dot"/>Connected workspace</div></div></aside><main className="main"><header><button className="icon menu-btn" onClick={()=>setOpen(true)}><Menu/></button><div className="crumb"><span>Reliability Platform</span><ChevronRight size={16}/><b>{current.label}</b></div><div className="header-actions"><button type="button" className="feedback-trigger" onClick={()=>setFeedbackOpen(true)}><MessageSquare size={16}/><span>Submit feedback</span></button><button className="icon"><Search/></button><div className="avatar">{(session.user.email||"RE").slice(0,2).toUpperCase()}</div></div></header><div className="content">{active==="dashboard"?<Dashboard onNavigate={setActive}/>:active==="assets"?<AssetsPage/>:active==="sites"?<SitesPage/>:active==="import"?<ImportCenter/>:active==="technical"?<TechnicalLibraryPage/>:active==="visits"?<VisitsPage/>:active==="notes"?<NotesPage/>:<SectionPage section={current}/>}</div></main>{feedbackOpen&&<FeedbackDialog email={session.user.email||""} section={current.label} onClose={()=>setFeedbackOpen(false)}/>}</div>
 }
 
+
+function FeedbackDialog({email,section,onClose}:{email:string;section:string;onClose:()=>void}){
+ const [kind,setKind]=useState("Suggestion");
+ const [title,setTitle]=useState("");
+ const [details,setDetails]=useState("");
+ function submit(event:React.FormEvent<HTMLFormElement>){
+  event.preventDefault();
+  const subject="[Reliability Workspace] "+kind+": "+title.trim();
+  const body=["Type: "+kind,"Submitted by: "+email,"Current section: "+section,"","Details:",details.trim()].join("\n");
+  window.location.href="mailto:monarchbc@icloud.com?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body);
+  onClose();
+ }
+ return <div className="site-create-overlay feedback-overlay" role="presentation" onMouseDown={event=>{if(event.target===event.currentTarget)onClose()}}>
+  <section className="panel feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+   <div className="panel-head"><div><h2 id="feedback-title">Submit suggestions & feedback</h2><p>Send a correction or idea to the workspace admin.</p></div><button type="button" className="icon" onClick={onClose} aria-label="Close"><X size={18}/></button></div>
+   <form className="feedback-form" onSubmit={submit}>
+    <label>Type<select value={kind} onChange={event=>setKind(event.target.value)}><option>Suggestion</option><option>Correction</option><option>Bug report</option><option>Other</option></select></label>
+    <label>Short summary<input value={title} onChange={event=>setTitle(event.target.value)} required placeholder="What should be changed?"/></label>
+    <label>Details<textarea value={details} onChange={event=>setDetails(event.target.value)} required rows={5} placeholder="Describe what you saw and what you would like instead."/></label>
+    <p className="feedback-submit-note">Your email app will open a draft to monarchbc@icloud.com with this section and your account email included. Review it, then send.</p>
+    <div className="site-create-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button type="submit" className="primary"><MessageSquare size={15}/> Continue to email</button></div>
+   </form>
+  </section>
+ </div>;
+}
 function Dashboard({onNavigate}:{onNavigate:(section:string)=>void}){
  const [sites,setSites]=useState<Site[]>([]);
  const [assets,setAssets]=useState<Asset[]>([]);
