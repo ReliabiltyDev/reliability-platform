@@ -7,7 +7,7 @@ type Section={id:string;label:string;icon:React.ComponentType<{size?:number}>};
 const sections:Section[]=[
 {id:"dashboard",label:"Dashboard",icon:LayoutDashboard},{id:"assets",label:"Assets",icon:PackageSearch},{id:"reliability",label:"Reliability",icon:Activity},{id:"maintenance",label:"Maintenance",icon:Wrench},{id:"visits",label:"Site Visits",icon:ClipboardCheck},{id:"calendar",label:"Calendar",icon:CalendarDays},{id:"technical",label:"Technical Library",icon:Gauge},{id:"documents",label:"Documents",icon:FileText},{id:"maximo",label:"Maximo",icon:ShieldCheck}
 ];
-type Site={id:string;code:string;name:string}; type Asset={id:string;asset_tag:string;name:string;asset_class:string|null;criticality:number|null;status:string};
+type Site={id:string;code:string;name:string}; type Asset={id:string;site_id:string;asset_tag:string;name:string;asset_class:string|null;criticality:number|null;status:string};
 
 export default function App(){
  const [session,setSession]=useState<any>(null); const [loading,setLoading]=useState(true);
@@ -86,24 +86,31 @@ function Item({title,detail,tag}:{title:string;detail:string;tag:string}){return
 function Quick({title,text}:{title:string;text:string}){return <button className="quick-card"><b>{title}</b><span>{text}</span><ChevronRight size={17}/></button>}
 function AssetsPage(){
  const [assets,setAssets]=useState<AssetDetail[]>([]);
+ const [sites,setSites]=useState<Site[]>([]);
+ const [siteFilter,setSiteFilter]=useState("all");
  const [query,setQuery]=useState("");
  const [selected,setSelected]=useState<AssetDetail|null>(null);
  const [editing,setEditing]=useState(false);
  const [error,setError]=useState("");
  async function load(){
-  const r=await supabase!.from("assets").select("id,asset_tag,name,asset_class,manufacturer,model,serial_number,status,criticality,description,maximo_asset_id,installed_at,parent_asset_id,production_line_id").order("name");
+  const [r,s]=await Promise.all([
+   supabase!.from("assets").select("id,site_id,asset_tag,name,asset_class,manufacturer,model,serial_number,status,criticality,description,maximo_asset_id,installed_at,parent_asset_id,production_line_id").order("name"),
+   supabase!.from("sites").select("id,code,name").order("name")
+  ]);
   if(r.error){setError(r.error.message);return}
+  if(s.error){setError(s.error.message);return}
   setAssets((r.data||[]) as AssetDetail[]);
+  setSites((s.data||[]) as Site[]);
  }
  useEffect(()=>{void load()},[]);
- const filtered=assets.filter(a=>[a.name,a.asset_tag,a.asset_class||"",a.manufacturer||"",a.model||""].join(" ").toLowerCase().includes(query.toLowerCase()));
- if(selected) return <AssetDetailPage asset={selected} onBack={()=>{setSelected(null);setEditing(false)}} onSaved={async()=>{setSelected(null);setEditing(false);await load()}} editing={editing} setEditing={setEditing}/>;
+ const filtered=assets.filter(a=>(siteFilter==="all"||a.site_id===siteFilter)&&[a.name,a.asset_tag,a.asset_class||"",a.manufacturer||"",a.model||""].join(" ").toLowerCase().includes(query.toLowerCase()));
+ if(selected) return <AssetDetailPage asset={selected} onBack={()=>{setSelected(null);setEditing(false)}} onSaved={async()=>{setSelected(null);setEditing(false);await load()}} editing={editing} setEditing={setEditing} sites={sites}/>;
  return <div>
-  <div className="hero"><div><p className="eyebrow">ASSET MANAGEMENT</p><h1>Assets</h1><p className="muted">Build and maintain the equipment hierarchy that everything else in the platform connects to.</p></div><button className="primary" onClick={()=>{setSelected({id:"",asset_tag:"",name:"",asset_class:"",manufacturer:"",model:"",serial_number:"",status:"active",criticality:3,description:"",maximo_asset_id:"",installed_at:"",parent_asset_id:null,production_line_id:null});setEditing(true)}}><Plus size={17}/> Add asset</button></div>
+  <div className="hero"><div><p className="eyebrow">ASSET MANAGEMENT</p><h1>Assets</h1><p className="muted">Build and maintain the equipment hierarchy that everything else in the platform connects to.</p></div><button className="primary" onClick={()=>{setSelected({id:"",site_id:siteFilter==="all"?(sites[0]?.id||""):siteFilter,asset_tag:"",name:"",asset_class:"",manufacturer:"",model:"",serial_number:"",status:"active",criticality:3,description:"",maximo_asset_id:"",installed_at:"",parent_asset_id:null,production_line_id:null});setEditing(true)}}><Plus size={17}/> Add asset</button></div>
   {error&&<div className="notice error wide">{error}</div>}
-  <div className="asset-toolbar"><div className="search-box"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search assets, tags, manufacturers…"/></div><div className="toolbar-note">{filtered.length} asset{filtered.length===1?"":"s"}</div></div>
-  <section className="panel"><div className="asset-table-head"><span>Asset</span><span>Class</span><span>Manufacturer / Model</span><span>Criticality</span><span>Status</span></div>
-   {filtered.length?filtered.map(a=><button className="asset-row" key={a.id||"new"} onClick={()=>{setSelected(a);setEditing(false)}}><div className="asset-main"><div className="row-icon"><PackageSearch size={17}/></div><div><b>{a.name||"New asset"}</b><span>{a.asset_tag||"No asset tag"}</span></div></div><span>{a.asset_class||"—"}</span><span>{[a.manufacturer,a.model].filter(Boolean).join(" · ")||"—"}</span><span><span className={a.criticality&&a.criticality>=4?"critical-tag":"tag"}>{a.criticality??"—"}</span></span><span className="tag">{a.status}</span></button>):<Empty text="No assets match your search."/>}
+  <div className="asset-toolbar"><div className="search-box"><Search size={17}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search assets, tags, manufacturers…"/></div><select className="site-filter" value={siteFilter} onChange={e=>setSiteFilter(e.target.value)}><option value="all">All sites</option>{sites.map(s=><option key={s.id} value={s.id}>{s.name} · {s.code}</option>)}</select><div className="toolbar-note">{filtered.length} asset{filtered.length===1?"":"s"}</div></div>
+  <section className="panel"><div className="asset-table-head"><span>Asset</span><span>Site</span><span>Class</span><span>Manufacturer / Model</span><span>Criticality</span><span>Status</span></div>
+   {filtered.length?filtered.map(a=><button className="asset-row" key={a.id||"new"} onClick={()=>{setSelected(a);setEditing(false)}}><div className="asset-main"><div className="row-icon"><PackageSearch size={17}/></div><div><b>{a.name||"New asset"}</b><span>{a.asset_tag||"No asset tag"}</span></div></div><span>{sites.find(s=>s.id===a.site_id)?.name||"—"}</span><span>{a.asset_class||"—"}</span><span>{[a.manufacturer,a.model].filter(Boolean).join(" · ")||"—"}</span><span><span className={a.criticality&&a.criticality>=4?"critical-tag":"tag"}>{a.criticality??"—"}</span></span><span className="tag">{a.status}</span></button>):<Empty text="No assets match your search."/>}
   </section>
   <section className="panel hierarchy-callout"><div className="row-icon"><PackageSearch size={20}/></div><div><h2>Asset hierarchy</h2><p>Site → area → production line → machine → subsystem → component</p></div></section>
  </div>
@@ -111,13 +118,13 @@ function AssetsPage(){
 
 type AssetDetail=Asset & {manufacturer?:string|null;model?:string|null;serial_number?:string|null;description?:string|null;maximo_asset_id?:string|null;installed_at?:string|null;parent_asset_id?:string|null;production_line_id?:string|null};
 
-function AssetDetailPage({asset,onBack,onSaved,editing,setEditing}:{asset:AssetDetail;onBack:()=>void;onSaved:()=>void;editing:boolean;setEditing:(v:boolean)=>void}){
+function AssetDetailPage({asset,onBack,onSaved,editing,setEditing,sites}:{asset:AssetDetail;onBack:()=>void;onSaved:()=>void;editing:boolean;setEditing:(v:boolean)=>void;sites:Site[]}){
  const [form,setForm]=useState(asset); const [photos,setPhotos]=useState<any[]>([]); const [busy,setBusy]=useState(false); const [error,setError]=useState("");
  useEffect(()=>{setForm(asset); if(asset.id) void loadPhotos()},[asset.id]);
  async function loadPhotos(){const r=await supabase!.from("asset_photos").select("id,storage_path,caption,created_at").eq("asset_id",asset.id).order("created_at",{ascending:false}); if(!r.error)setPhotos(r.data||[])}
  async function save(){
   setBusy(true);setError("");
-  const payload={asset_tag:form.asset_tag,name:form.name,asset_class:form.asset_class||null,manufacturer:form.manufacturer||null,model:form.model||null,serial_number:form.serial_number||null,status:form.status,criticality:form.criticality||null,description:form.description||null,maximo_asset_id:form.maximo_asset_id||null,installed_at:form.installed_at||null,parent_asset_id:form.parent_asset_id||null,production_line_id:form.production_line_id||null};
+  const payload={site_id:form.site_id,asset_tag:form.asset_tag,name:form.name,asset_class:form.asset_class||null,manufacturer:form.manufacturer||null,model:form.model||null,serial_number:form.serial_number||null,status:form.status,criticality:form.criticality||null,description:form.description||null,maximo_asset_id:form.maximo_asset_id||null,installed_at:form.installed_at||null,parent_asset_id:form.parent_asset_id||null,production_line_id:form.production_line_id||null};
   const r=form.id?await supabase!.from("assets").update(payload).eq("id",form.id).select().single():await supabase!.from("assets").insert(payload).select().single();
   if(r.error)setError(r.error.message);else await onSaved();setBusy(false);
  }
@@ -136,8 +143,8 @@ function AssetDetailPage({asset,onBack,onSaved,editing,setEditing}:{asset:AssetD
   <button className="back-btn" onClick={onBack}><ArrowLeft size={16}/> Back to assets</button>
   <div className="detail-hero"><div><p className="eyebrow">ASSET RECORD</p><h1>{form.name||"New asset"}</h1><p className="muted">{form.asset_tag||"Assign an asset tag"}{form.asset_class?" · "+form.asset_class:""}</p></div><div className="detail-actions">{form.id&&!editing&&<button className="secondary" onClick={()=>setEditing(true)}>Edit asset</button>}{editing&&<button className="primary" disabled={busy} onClick={save}><Save size={16}/>{busy?"Saving…":"Save asset"}</button>}</div></div>
   {error&&<div className="notice error wide">{error}</div>}
-  {editing?<AssetForm form={form} setForm={setForm}/>:<div className="detail-grid">
-   <section className="panel"><div className="panel-head"><div><h2>Asset information</h2><p>Core equipment identity</p></div></div><InfoGrid items={[["Asset tag",form.asset_tag],["Class",form.asset_class],["Manufacturer",form.manufacturer],["Model",form.model],["Serial number",form.serial_number],["Criticality",form.criticality],["Status",form.status],["Maximo asset ID",form.maximo_asset_id]]}/><div className="description"><b>Description</b><p>{form.description||"No description has been entered yet."}</p></div></section>
+  {editing?<AssetForm form={form} setForm={setForm} sites={sites}/>:<div className="detail-grid">
+   <section className="panel"><div className="panel-head"><div><h2>Asset information</h2><p>Core equipment identity</p></div></div><InfoGrid items={[["Site",sites.find(s=>s.id===form.site_id)?.name||form.site_id],["Asset tag",form.asset_tag],["Class",form.asset_class],["Manufacturer",form.manufacturer],["Model",form.model],["Serial number",form.serial_number],["Criticality",form.criticality],["Status",form.status],["Maximo asset ID",form.maximo_asset_id]]}/><div className="description"><b>Description</b><p>{form.description||"No description has been entered yet."}</p></div></section>
    <section className="panel"><div className="panel-head"><div><h2>Photos</h2><p>Equipment photos and nameplates</p></div>{form.id&&<label className="upload-btn"><Upload size={15}/> Add photo<input type="file" accept="image/*" onChange={e=>{const f=e.target.files?.[0];if(f)void addPhoto(f);e.currentTarget.value=""}}/></label>}</div>
     {photos.length?<div className="photo-grid">{photos.map(p=><div className="photo-card" key={p.id}><img src={supabase!.storage.from("asset-photos").getPublicUrl(p.storage_path).data.publicUrl} alt={p.caption||"Asset photo"}/></div>)}</div>:<div className="photo-empty"><Image size={28}/><span>No photos yet.</span><small>On iPad, use Add photo to choose from Photos or take a picture.</small></div>}
    </section>
@@ -145,9 +152,10 @@ function AssetDetailPage({asset,onBack,onSaved,editing,setEditing}:{asset:AssetD
  </div>
 }
 
-function AssetForm({form,setForm}:{form:AssetDetail;setForm:React.Dispatch<React.SetStateAction<AssetDetail>>}){
+function AssetForm({form,setForm,sites}:{form:AssetDetail;setForm:React.Dispatch<React.SetStateAction<AssetDetail>>;sites?:Site[]}){
  const set=(key:keyof AssetDetail,value:any)=>setForm(x=>({...x,[key]:value}));
  return <div className="detail-grid"><section className="panel form-panel"><div className="panel-head"><div><h2>Asset information</h2><p>Enter the equipment record</p></div></div><div className="form-grid">
+  <label>Site<select value={form.site_id} onChange={e=>set("site_id",e.target.value)}><option value="">Select site…</option>{sites?.map(s=><option key={s.id} value={s.id}>{s.name} · {s.code}</option>)}</select></label>
   <label>Asset tag<input value={form.asset_tag} onChange={e=>set("asset_tag",e.target.value)} placeholder="e.g. P-101"/></label>
   <label>Name<input value={form.name} onChange={e=>set("name",e.target.value)} placeholder="Equipment name"/></label>
   <label>Asset class<input value={form.asset_class||""} onChange={e=>set("asset_class",e.target.value)} placeholder="Press, motor, gearbox…"/></label>
