@@ -470,3 +470,31 @@
 .calendar-subscription-panel>small{color:#8a9791;font-size:9px;line-height:1.45}
 .pareto-track:after{content:"";position:absolute;left:80%;top:-3px;height:15px;border-left:1px dashed #b7895e;pointer-events:none}
 @media(max-width:560px){.calendar-feed-controls>div{align-items:stretch}.calendar-feed-controls>div>*{flex:1;justify-content:center}.calendar-create-feed{width:100%;justify-content:center}}
+
+
+/* Optional compact sidebar on desktop */
+.sidebar-collapse-toggle{display:none;flex:none;margin-left:auto;color:#b8ccc5}
+.sidebar-collapse-toggle svg{transform:rotate(180deg);transition:transform .2s ease}
+@media(min-width:851px){
+ .sidebar-collapse-toggle{display:grid}
+ .sidebar-collapsed .sidebar{width:76px}
+ .sidebar-collapsed .main{margin-left:76px;width:calc(100% - 76px)}
+ .sidebar-collapsed .brand{justify-content:center;gap:0;padding:18px 8px}
+ .sidebar-collapsed .brand>div:not(.mark){display:none}
+ .sidebar-collapsed .sidebar-collapse-toggle{margin-left:0}
+ .sidebar-collapsed .sidebar-collapse-toggle svg{transform:rotate(0deg)}
+ .sidebar-collapsed .sidebar nav{padding:18px 10px}
+ .sidebar-collapsed .sidebar .nav{justify-content:center;padding:11px 0}
+ .sidebar-collapsed .sidebar .nav span,.sidebar-collapsed .environment{display:none}
+}
+@media(max-width:850px){
+ .sidebar-collapse-toggle{display:none}
+}
+
+.calendar-day-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 13px}
+.calendar-day-toolbar>div{display:grid;gap:4px}
+.calendar-day-toolbar>div>b{font-size:13px}
+.calendar-day-toolbar>div>span{font-size:11px;color:#83918a}
+.calendar-day-toolbar .primary{padding:8px 11px;font-size:11px}
+.calendar-date-number:focus-visible,.calendar-week-heading:focus-visible,.calendar-mini-day:focus-visible{outline:2px solid #5f9c88;outline-offset:2px}
+@media(max-width:620px){.calendar-day-toolbar{align-items:flex-start}.calendar-day-toolbar .primary{white-space:nowrap}}
