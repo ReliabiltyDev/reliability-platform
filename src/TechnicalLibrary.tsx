@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type React from "react";
 import { Activity, BookOpen, Calculator, ChevronDown, ChevronRight, ExternalLink, FilePlus2, FileText, Gauge, Link2, Plus, RefreshCw, ShieldCheck, Upload, Wrench, X } from "lucide-react";
 import { supabase } from "./lib/supabase";
 
