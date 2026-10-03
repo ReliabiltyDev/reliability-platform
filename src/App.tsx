@@ -5,6 +5,10 @@ import { supabase } from "./lib/supabase";
 import SitesPage from "./SitesPage";
 import ImportCenter from "./ImportCenter";
 import { VisitsPage, NotesPage } from "./PersonalPages";
+import TechnicalLibrary from "./TechnicalLibrary";
+import CalendarPage from "./CalendarPage";
+import ReliabilityPage from "./ReliabilityPage";
+import ReliabilityAnalytics from "./ReliabilityAnalytics";
 
 type Section={id:string;label:string;icon:React.ComponentType<{size?:number}>};
 const sections:Section[]=[
@@ -30,7 +34,7 @@ function AuthScreen(){
 function AuthenticatedApp({session}:{session:any}){
  useEffect(()=>{ void supabase!.rpc("bootstrap_demo_workspace"); },[session.user.id]);
  const [active,setActive]=useState("dashboard"); const [open,setOpen]=useState(false); const [feedbackOpen,setFeedbackOpen]=useState(false); const current=sections.find(s=>s.id===active)!;
- return <div className="app"><aside className={open?"sidebar open":"sidebar"}><div className="brand"><div className="mark">R</div><div><strong>Reliability</strong><span>Engineering Platform</span></div><button className="icon mobile-close" onClick={()=>setOpen(false)}><X/></button></div><nav>{sections.map(s=>{const I=s.icon;return <button className={active===s.id?"nav active":"nav"} key={s.id} onClick={()=>{setActive(s.id);setOpen(false)}}><I size={19}/><span>{s.label}</span></button>})}</nav><div className="sidebar-bottom"><button className="nav" onClick={()=>supabase!.auth.signOut()}><LogOut size={19}/><span>Sign out</span></button><div className="environment"><span className="dot"/>Connected workspace</div></div></aside><main className="main"><header><button className="icon menu-btn" onClick={()=>setOpen(true)}><Menu/></button><div className="crumb"><span>Reliability Platform</span><ChevronRight size={16}/><b>{current.label}</b></div><div className="header-actions"><button type="button" className="feedback-trigger" onClick={()=>setFeedbackOpen(true)}><MessageSquare size={16}/><span>Submit feedback</span></button><button className="icon"><Search/></button><div className="avatar">{(session.user.email||"RE").slice(0,2).toUpperCase()}</div></div></header><div className="content">{active==="dashboard"?<Dashboard onNavigate={setActive}/>:active==="assets"?<AssetsPage/>:active==="sites"?<SitesPage/>:active==="import"?<ImportCenter/>:active==="technical"?<TechnicalLibraryPage/>:active==="visits"?<VisitsPage/>:active==="notes"?<NotesPage/>:<SectionPage section={current}/>}</div></main>{feedbackOpen&&<FeedbackDialog email={session.user.email||""} section={current.label} onClose={()=>setFeedbackOpen(false)}/>}</div>
+ return <div className="app"><aside className={open?"sidebar open":"sidebar"}><div className="brand"><div className="mark">R</div><div><strong>Reliability</strong><span>Engineering Platform</span></div><button className="icon mobile-close" onClick={()=>setOpen(false)}><X/></button></div><nav>{sections.map(s=>{const I=s.icon;return <button className={active===s.id?"nav active":"nav"} key={s.id} onClick={()=>{setActive(s.id);setOpen(false)}}><I size={19}/><span>{s.label}</span></button>})}</nav><div className="sidebar-bottom"><button className="nav" onClick={()=>supabase!.auth.signOut()}><LogOut size={19}/><span>Sign out</span></button><div className="environment"><span className="dot"/>Connected workspace</div></div></aside><main className="main"><header><button className="icon menu-btn" onClick={()=>setOpen(true)}><Menu/></button><div className="crumb"><span>Reliability Platform</span><ChevronRight size={16}/><b>{current.label}</b></div><div className="header-actions"><button type="button" className="feedback-trigger" onClick={()=>setFeedbackOpen(true)}><MessageSquare size={16}/><span>Submit feedback</span></button><button className="icon"><Search/></button><div className="avatar">{(session.user.email||"RE").slice(0,2).toUpperCase()}</div></div></header><div className="content">{active==="dashboard"?<Dashboard onNavigate={setActive}/>:active==="assets"?<AssetsPage/>:active==="sites"?<SitesPage/>:active==="import"?<ImportCenter/>:active==="technical"?<TechnicalLibrary/>:active==="visits"?<VisitsPage/>:active==="calendar"?<CalendarPage/>:active==="reliability"?<ReliabilityPage/>:active==="notes"?<NotesPage/>:<SectionPage section={current}/>}</div></main>{feedbackOpen&&<FeedbackDialog email={session.user.email||""} section={current.label} onClose={()=>setFeedbackOpen(false)}/>}</div>
 }
 
 
@@ -81,7 +85,7 @@ function Dashboard({onNavigate}:{onNavigate:(section:string)=>void}){
  return <div>
   <div className="hero">
    <div><p className="eyebrow">RELIABILITY OVERVIEW</p><h1>Reliability Workspace</h1><p className="muted">Connected to your Supabase reliability workspace.</p></div>
-   <button className="primary"><span>+</span> Log activity</button>
+   <button type="button" className="primary" onClick={()=>onNavigate("reliability")}><span>+</span> Log activity</button>
   </div>
   {error&&<div className="notice error wide">{error}</div>}
   <div className="grid metrics">
@@ -98,6 +102,7 @@ function Dashboard({onNavigate}:{onNavigate:(section:string)=>void}){
     {assets.length>0 ? <div className="list">{assets.slice(0,6).map(a=><Item key={a.id} title={a.name} detail={a.asset_tag+(a.asset_class?" · "+a.asset_class:"")} tag={a.status} onClick={()=>onNavigate("assets")}/>)}</div> : <Empty text="No assets are visible yet. Site membership controls access."/>}
    </section>
   </div>
+  <ReliabilityAnalytics onNavigate={onNavigate}/>
   <section className="panel quick"><div className="panel-head"><div><h2>Next build layer</h2><p>The live application will expand from this connected foundation.</p></div></div>
    <div className="quick-grid">
     <Quick title="Asset hierarchy" text="Site → area → line → machine → subsystem → component" onClick={()=>onNavigate("assets")}/>
