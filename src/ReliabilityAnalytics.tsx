@@ -80,7 +80,7 @@ export default function ReliabilityAnalytics({ onNavigate }: { onNavigate: (sect
   const activeMeasure = measureNames.includes(selectedMeasure) ? selectedMeasure : (measureNames[0] || "");
   const series = assetReadings.filter(reading => reading.measure_name === activeMeasure).slice(-30);
   const latestReading = series[series.length - 1];
-  const pfThreshold = latestReading || series.find(reading => reading.potential_failure_threshold != null || reading.functional_failure_threshold != null);
+  const pfThreshold = [...series].reverse().find(reading => reading.potential_failure_threshold != null || reading.functional_failure_threshold != null);
   const pThreshold = pfThreshold?.potential_failure_threshold ?? null;
   const fThreshold = pfThreshold?.functional_failure_threshold ?? null;
   const higherIsWorse = pfThreshold?.higher_is_worse ?? true;
