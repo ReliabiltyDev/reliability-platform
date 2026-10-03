@@ -252,7 +252,7 @@ function DayView({ date, visits, sites, assets, onSelect, onNew }: { date: Date;
   const timed = dayVisits.filter(visit => !visit.all_day && visit.scheduled_start).sort((a, b) => (a.scheduled_start || "").localeCompare(b.scheduled_start || ""));
   return <div className="calendar-day-view">
     {allDay.length > 0 && <div className="calendar-all-day"><b>All day</b>{allDay.map(visit => <EventChip key={visit.id} visit={visit} site={sites.find(item => item.id === visit.site_id)} asset={assets.find(item => item.id === visit.asset_id)} onSelect={onSelect}/>)}</div>}
-    <div className="calendar-day-agenda">{Array.from({ length: 17 }, (_, index) => index + 6).map(hour => {
+    <div className="calendar-day-agenda">{Array.from({ length: 24 }, (_, index) => index).map(hour => {
       const hourVisits = timed.filter(visit => new Date(visit.scheduled_start!).getHours() === hour);
       return <div className="calendar-hour-row" key={hour}><span>{new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" })}</span><div>{hourVisits.map(visit => <EventChip key={visit.id} visit={visit} site={sites.find(item => item.id === visit.site_id)} asset={assets.find(item => item.id === visit.asset_id)} onSelect={onSelect} showTime/>)}</div></div>;
     })}</div>
