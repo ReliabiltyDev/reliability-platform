@@ -36,12 +36,14 @@ export default function ReliabilityAnalytics({ onNavigate }: { onNavigate: (sect
 
   async function load() {
     setError("");
+    const auth = await supabase!.auth.getUser();
+    if (auth.error || !auth.data.user) { setError(auth.error?.message || "Your session could not be confirmed."); return; }
     const [siteResult, assetResult, failureResult, readingResult, visitResult] = await Promise.all([
       supabase!.from("sites").select("id,name").order("name"),
       supabase!.from("assets").select("id,site_id,name,asset_tag,criticality").order("name"),
       supabase!.from("failure_events").select("id,asset_id,occurred_at,failure_mode,failure_cause,downtime_minutes").order("occurred_at", { ascending: false }),
       supabase!.from("asset_condition_readings").select("id,site_id,asset_id,visit_id,observed_at,measure_name,value,unit,potential_failure_threshold,functional_failure_threshold,higher_is_worse,notes").order("observed_at", { ascending: true }),
-      supabase!.from("site_visits").select("id,site_id,asset_id,visit_date,scheduled_start,all_day,purpose").order("visit_date", { ascending: true })
+      supabase!.from("site_visits").select("id,site_id,asset_id,visit_date,scheduled_start,all_day,purpose").eq("created_by", auth.data.user.id).order("visit_date", { ascending: true })
     ]);
     if (siteResult.error) setError(siteResult.error.message); else setSites((siteResult.data || []) as Site[]);
     if (assetResult.error) setError(assetResult.error.message); else {
