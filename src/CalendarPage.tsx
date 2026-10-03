@@ -28,6 +28,7 @@ export default function CalendarPage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
   const [feedUrl, setFeedUrl] = useState("");
   const [feedBusy, setFeedBusy] = useState(false);
@@ -66,6 +67,42 @@ export default function CalendarPage() {
     });
   }
 
+  function openCreateAppointment(date: Date = anchorDate) {
+    setEditingVisit(null);
+    setSelectedVisit(null);
+    setDraft({ ...blankVisit(), visit_date: dateKey(date) });
+    setCreateOpen(true);
+    setError("");
+    setMessage("");
+  }
+
+  function openEditAppointment(visit: Visit) {
+    const start = visit.scheduled_start ? new Date(visit.scheduled_start) : null;
+    const minutes = start && visit.scheduled_end
+      ? Math.max(15, Math.round((new Date(visit.scheduled_end).getTime() - start.getTime()) / 60000))
+      : 60;
+    setSelectedVisit(null);
+    setEditingVisit(visit);
+    setDraft({
+      site_id: visit.site_id,
+      asset_id: visit.asset_id || "",
+      visit_date: visit.visit_date,
+      start_time: start ? start.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "",
+      duration: String(minutes),
+      purpose: visit.purpose || "",
+      summary: visit.summary || "",
+      location: visit.location || ""
+    });
+    setCreateOpen(true);
+    setError("");
+    setMessage("");
+  }
+
+  function closeAppointmentEditor() {
+    setCreateOpen(false);
+    setEditingVisit(null);
+  }
+
   async function saveVisit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError(""); setMessage("");
     const user = await supabase!.auth.getUser();
@@ -79,18 +116,24 @@ export default function CalendarPage() {
       scheduledStart = start.toISOString();
       scheduledEnd = end.toISOString();
     }
-    const result = await supabase!.from("site_visits").insert({
+    const payload = {
       site_id: draft.site_id, asset_id: draft.asset_id || null, visit_date: draft.visit_date,
       scheduled_start: scheduledStart, scheduled_end: scheduledEnd, all_day: !timed,
       purpose: draft.purpose.trim(), summary: draft.summary.trim() || null,
-      location: draft.location.trim() || null, created_by: user.data.user.id
-    });
+      location: draft.location.trim() || null
+    };
+    const result = editingVisit
+      ? await supabase!.from("site_visits").update(payload).eq("id", editingVisit.id).select("id").single()
+      : await supabase!.from("site_visits").insert({ ...payload, created_by: user.data.user.id }).select("id").single();
     if (result.error) setError(result.error.message);
     else {
+      const wasEditing = Boolean(editingVisit);
       setAnchorDate(parseDate(draft.visit_date));
+      setView("day");
       setDraft(blankVisit());
       setCreateOpen(false);
-      setMessage("Appointment saved and linked to its site visit.");
+      setEditingVisit(null);
+      setMessage(wasEditing ? "Appointment changes saved." : "Appointment saved and linked to its site visit.");
       await load();
     }
     setSaving(false);
@@ -174,7 +217,7 @@ export default function CalendarPage() {
   return <div className="calendar-page">
     <div className="hero calendar-hero">
       <div><p className="eyebrow">VISITS & SCHEDULE</p><h1>My Calendar</h1><p className="muted">Schedule appointments, link them to a site and asset, and add them to Apple Calendar.</p></div>
-      <div className="calendar-top-actions"><button type="button" className="secondary" disabled={!visibleVisits.length} onClick={() => exportVisits(visibleVisits, "reliability-appointments.ics")}><Smartphone size={15}/> Export to iPhone</button><button type="button" className="primary" onClick={() => { setDraft(blankVisit()); setCreateOpen(true); setError(""); }}><Plus size={16}/> New appointment</button></div>
+      <div className="calendar-top-actions"><button type="button" className="secondary" disabled={!visibleVisits.length} onClick={() => exportVisits(visibleVisits, "reliability-appointments.ics")}><Smartphone size={15}/> Export to iPhone</button><button type="button" className="primary" onClick={() => openCreateAppointment()}><Plus size={16}/> New appointment</button></div>
     </div>
     {error && <div className="notice error wide">{error}</div>}
     {message && <div className="notice wide">{message}</div>}
@@ -187,8 +230,8 @@ export default function CalendarPage() {
       {loading ? <div className="empty">Loading calendar…</div> : <>
         {view === "month" && <MonthView date={anchorDate} visits={inPeriod} sites={sites} assets={assets} onSelect={setSelectedVisit} onDay={date => { setAnchorDate(date); setView("day"); }}/>}
         {view === "week" && <WeekView date={anchorDate} visits={inPeriod} sites={sites} assets={assets} onSelect={setSelectedVisit} onDay={date => { setAnchorDate(date); setView("day"); }}/>}
-        {view === "day" && <DayView date={anchorDate} visits={inPeriod} sites={sites} assets={assets} onSelect={setSelectedVisit} onNew={() => { setDraft({ ...blankVisit(), visit_date: dateKey(anchorDate) }); setCreateOpen(true); }}/>}
-        {view === "year" && <YearView date={anchorDate} visits={inPeriod} sites={sites} assets={assets} onMonth={date => { setAnchorDate(date); setView("month"); }} onSelect={setSelectedVisit}/>}
+        {view === "day" && <DayView date={anchorDate} visits={inPeriod} sites={sites} assets={assets} onSelect={setSelectedVisit} onNew={() => openCreateAppointment(anchorDate)}/>}
+        {view === "year" && <YearView date={anchorDate} visits={inPeriod} sites={sites} assets={assets} onMonth={date => { setAnchorDate(date); setView("month"); }} onDay={date => { setAnchorDate(date); setView("day"); }} onSelect={setSelectedVisit}/>}
       </>}
       <div className="calendar-board-footer"><span>{inPeriod.length} appointment{inPeriod.length === 1 ? "" : "s"} in this view</span><span>Appointments are saved as linked site visit records.</span></div>
     </section>
@@ -201,7 +244,7 @@ export default function CalendarPage() {
 
     {createOpen && <div className="site-create-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setCreateOpen(false); }}>
       <section className="panel calendar-modal" role="dialog" aria-modal="true" aria-labelledby="appointment-title">
-        <div className="panel-head"><div><h2 id="appointment-title">New appointment</h2><p>Appointments are linked to a site visit and can include an asset.</p></div><button type="button" className="icon" onClick={() => setCreateOpen(false)} aria-label="Close"><X size={18}/></button></div>
+        <div className="panel-head"><div><h2 id="appointment-title">{editingVisit ? "Edit appointment" : "New appointment"}</h2><p>Appointments are linked to a site visit and can include an asset.</p></div><button type="button" className="icon" onClick={closeAppointmentEditor} aria-label="Close"><X size={18}/></button></div>
         <form className="calendar-form" onSubmit={saveVisit}>
           <div className="form-grid">
             <label className="span-2">Site<select required value={draft.site_id} onChange={e => { setDraftValue("site_id", e.target.value); setDraftValue("asset_id", ""); }}><option value="">Select a site…</option>{sites.map(site => <option key={site.id} value={site.id}>{site.name}{site.state ? " · " + site.state : ""}</option>)}</select></label>
@@ -209,16 +252,16 @@ export default function CalendarPage() {
             <label className="span-2">Appointment title<input required value={draft.purpose} onChange={e => setDraftValue("purpose", e.target.value)} placeholder="Inspection, outage planning, follow-up…"/></label>
             <label>Date<input required type="date" value={draft.visit_date} onChange={e => setDraftValue("visit_date", e.target.value)}/></label>
             <label>Start time<input type="time" value={draft.start_time} onChange={e => setDraftValue("start_time", e.target.value)}/></label>
-            {draft.start_time && <label>Duration<select value={draft.duration} onChange={e => setDraftValue("duration", e.target.value)}><option value="30">30 minutes</option><option value="60">1 hour</option><option value="90">1.5 hours</option><option value="120">2 hours</option><option value="240">4 hours</option><option value="480">Full day</option></select></label>}
+            {draft.start_time && <label>Duration (minutes)<input type="number" min="15" max="1440" step="15" value={draft.duration} onChange={e => setDraftValue("duration", e.target.value)}/></label>}
             <label className={draft.start_time ? "" : "span-2"}>Location (optional)<input value={draft.location} onChange={e => setDraftValue("location", e.target.value)} placeholder="Building, address, or meeting point"/></label>
             <label className="span-2">Agenda and visit notes<textarea rows={3} value={draft.summary} onChange={e => setDraftValue("summary", e.target.value)} placeholder="Agenda, observations, or people to meet"/></label>
           </div>
-          <div className="site-create-actions"><button type="button" className="secondary" onClick={() => setCreateOpen(false)}>Cancel</button><button type="submit" className="primary" disabled={saving || !draft.site_id || !draft.purpose.trim()}><CalendarDays size={16}/>{saving ? "Saving…" : "Save appointment"}</button></div>
+          <div className="site-create-actions"><button type="button" className="secondary" onClick={closeAppointmentEditor}>Cancel</button><button type="submit" className="primary" disabled={saving || !draft.site_id || !draft.purpose.trim()}><CalendarDays size={16}/>{saving ? "Saving…" : editingVisit ? "Save changes" : "Save appointment"}</button></div>
         </form>
       </section>
     </div>}
 
-    {selectedVisit && <VisitDetails visit={selectedVisit} site={sites.find(item => item.id === selectedVisit.site_id)} asset={assets.find(item => item.id === selectedVisit.asset_id)} onClose={() => setSelectedVisit(null)} onExport={() => exportVisits([selectedVisit], "appointment-" + selectedVisit.visit_date + ".ics")}/>}
+    {selectedVisit && <VisitDetails visit={selectedVisit} site={sites.find(item => item.id === selectedVisit.site_id)} asset={assets.find(item => item.id === selectedVisit.asset_id)} onClose={() => setSelectedVisit(null)} onEdit={() => openEditAppointment(selectedVisit)} onExport={() => exportVisits([selectedVisit], "appointment-" + selectedVisit.visit_date + ".ics")}/>}
   </div>;
 }
 
@@ -229,7 +272,7 @@ function MonthView({ date, visits, sites, assets, onSelect, onDay }: { date: Dat
   return <div className="calendar-month-wrap"><div className="calendar-weekday-row">{weekdays.map(day => <span key={day}>{day}</span>)}</div><div className="calendar-month-grid">{days.map(day => {
     const dayVisits = visits.filter(visit => visit.visit_date === dateKey(day));
     return <div key={dateKey(day)} className={"calendar-month-cell" + (day.getMonth() !== date.getMonth() ? " outside" : "") + (dateKey(day) === today() ? " today" : "")}>
-      <button type="button" className="calendar-date-number" onClick={() => onDay(day)}>{day.getDate()}</button>
+      <button type="button" className="calendar-date-number" aria-label={"Open agenda for " + day.toLocaleDateString(undefined, { dateStyle: "full" })} onClick={() => onDay(day)}>{day.getDate()}</button>
       <EventChips visits={dayVisits} sites={sites} assets={assets} onSelect={onSelect} limit={3}/>
       {dayVisits.length > 3 && <small className="calendar-more">+{dayVisits.length - 3} more</small>}
     </div>;
@@ -253,16 +296,17 @@ function DayView({ date, visits, sites, assets, onSelect, onNew }: { date: Date;
   const allDay = dayVisits.filter(visit => visit.all_day || !visit.scheduled_start);
   const timed = dayVisits.filter(visit => !visit.all_day && visit.scheduled_start).sort((a, b) => (a.scheduled_start || "").localeCompare(b.scheduled_start || ""));
   return <div className="calendar-day-view">
+    <div className="calendar-day-toolbar"><div><b>{date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}</b><span>{dayVisits.length} appointment{dayVisits.length === 1 ? "" : "s"}</span></div><button type="button" className="primary" onClick={onNew}><Plus size={15}/> Add appointment</button></div>
     {allDay.length > 0 && <div className="calendar-all-day"><b>All day</b>{allDay.map(visit => <EventChip key={visit.id} visit={visit} site={sites.find(item => item.id === visit.site_id)} asset={assets.find(item => item.id === visit.asset_id)} onSelect={onSelect}/>)}</div>}
     <div className="calendar-day-agenda">{Array.from({ length: 24 }, (_, index) => index).map(hour => {
       const hourVisits = timed.filter(visit => new Date(visit.scheduled_start!).getHours() === hour);
       return <div className="calendar-hour-row" key={hour}><span>{new Date(2000, 0, 1, hour).toLocaleTimeString(undefined, { hour: "numeric" })}</span><div>{hourVisits.map(visit => <EventChip key={visit.id} visit={visit} site={sites.find(item => item.id === visit.site_id)} asset={assets.find(item => item.id === visit.asset_id)} onSelect={onSelect} showTime/>)}</div></div>;
     })}</div>
-    {dayVisits.length === 0 && <div className="calendar-day-empty"><CalendarDays size={22}/><span>No appointments today.</span><button type="button" className="secondary" onClick={onNew}>Schedule one</button></div>}
+    {dayVisits.length === 0 && <div className="calendar-day-empty"><CalendarDays size={22}/><span>No appointments yet. Add one for this day.</span></div>}
   </div>;
 }
 
-function YearView({ date, visits, sites, assets, onMonth, onSelect }: { date: Date; visits: Visit[]; sites: Site[]; assets: Asset[]; onMonth: (date: Date) => void; onSelect: (visit: Visit) => void }) {
+function YearView({ date, visits, sites, assets, onMonth, onDay, onSelect }: { date: Date; visits: Visit[]; sites: Site[]; assets: Asset[]; onMonth: (date: Date) => void; onDay: (date: Date) => void; onSelect: (visit: Visit) => void }) {
   return <div className="calendar-year-grid">{Array.from({ length: 12 }, (_, month) => {
     const first = new Date(date.getFullYear(), month, 1, 12);
     const start = startOfWeek(first);
@@ -273,7 +317,7 @@ function YearView({ date, visits, sites, assets, onMonth, onSelect }: { date: Da
       <div className="calendar-mini-weekdays">{weekdays.map((day, index) => <span key={index}>{day[0]}</span>)}</div>
       <div className="calendar-mini-days">{days.map(day => {
         const dayVisits = visits.filter(visit => visit.visit_date === dateKey(day));
-        return <button type="button" key={dateKey(day)} className={"calendar-mini-day" + (day.getMonth() !== month ? " outside" : "") + (dayVisits.length ? " has-events" : "") + (dateKey(day) === today() ? " today" : "")} onClick={() => dayVisits.length ? onSelect(dayVisits[0]) : onMonth(first)} title={dayVisits.map(visit => visit.purpose || "Site visit").join(", ")}>{day.getDate()}</button>;
+        return <button type="button" key={dateKey(day)} className={"calendar-mini-day" + (day.getMonth() !== month ? " outside" : "") + (dayVisits.length ? " has-events" : "") + (dateKey(day) === today() ? " today" : "")} onClick={() => onDay(day)} title={"Open agenda for " + dateKey(day) + (dayVisits.length ? ": " + dayVisits.map(visit => visit.purpose || "Site visit").join(", ") : "")}>{day.getDate()}</button>;
       })}</div>
       {monthVisits.slice(0, 2).map(visit => <button type="button" className="calendar-year-event" key={visit.id} onClick={() => onSelect(visit)}>{dayLabel(visit.visit_date)} · {visit.purpose || "Site visit"}</button>)}
       {monthVisits.length > 2 && <small className="calendar-more">+{monthVisits.length - 2} more</small>}
@@ -289,11 +333,11 @@ function EventChip({ visit, site, asset, onSelect, showTime = false }: { visit: 
   return <button type="button" className="calendar-event-chip" onClick={() => onSelect(visit)} title={[visit.purpose, site?.name, asset?.name].filter(Boolean).join(" · ")}><b>{showTime && time ? time + " " : ""}{visit.purpose || "Site visit"}</b><small>{site?.name || "Site"}{asset ? " · " + asset.name : ""}</small></button>;
 }
 
-function VisitDetails({ visit, site, asset, onClose, onExport }: { visit: Visit; site?: Site; asset?: Asset; onClose: () => void; onExport: () => void }) {
+function VisitDetails({ visit, site, asset, onClose, onEdit, onExport }: { visit: Visit; site?: Site; asset?: Asset; onClose: () => void; onEdit: () => void; onExport: () => void }) {
   return <div className="site-create-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) onClose(); }}><section className="panel calendar-modal" role="dialog" aria-modal="true" aria-labelledby="visit-detail-title">
     <div className="panel-head"><div><p className="eyebrow">SITE APPOINTMENT</p><h2 id="visit-detail-title">{visit.purpose || "Site visit"}</h2></div><button type="button" className="icon" onClick={onClose} aria-label="Close"><X size={18}/></button></div>
     <div className="calendar-visit-detail"><p><CalendarDays size={16}/>{new Date(visit.visit_date + "T12:00:00").toLocaleDateString(undefined, { dateStyle: "full" })}{visit.scheduled_start ? " · " + new Date(visit.scheduled_start).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : " · All day"}</p><p><MapPin size={16}/>{visit.location || site?.name || "Location not set"}</p><p><b>Site:</b> {site?.name || "Site"}{site?.timezone ? " · " + site.timezone : ""}</p>{asset && <p><b>Asset:</b> {asset.name} · {asset.asset_tag}</p>}{visit.summary && <p className="calendar-detail-notes">{visit.summary}</p>}</div>
-    <div className="site-create-actions"><button type="button" className="secondary" onClick={onClose}>Close</button><button type="button" className="primary" onClick={onExport}><Download size={15}/> Export .ics</button></div>
+    <div className="site-create-actions"><button type="button" className="secondary" onClick={onClose}>Close</button><button type="button" className="secondary" onClick={onEdit}><CalendarDays size={15}/> Edit appointment</button><button type="button" className="primary" onClick={onExport}><Download size={15}/> Export .ics</button></div>
   </section></div>;
 }
 
