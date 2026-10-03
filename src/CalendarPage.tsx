@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type React from "react";
-import { CalendarDays, ChevronLeft, ChevronRight, Download, MapPin, Plus, Smartphone, X } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Copy, Download, Link2, MapPin, Plus, RefreshCw, Smartphone, X } from "lucide-react";
 import { supabase } from "./lib/supabase";
 
 type Site = { id: string; name: string; state: string | null; timezone: string | null };
@@ -29,6 +29,8 @@ export default function CalendarPage() {
   const [message, setMessage] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedVisit, setSelectedVisit] = useState<Visit | null>(null);
+  const [feedUrl, setFeedUrl] = useState("");
+  const [feedBusy, setFeedBusy] = useState(false);
 
   async function load() {
     setLoading(true); setError("");
@@ -129,6 +131,44 @@ export default function CalendarPage() {
     setMessage("Calendar file prepared. Open the .ics file on iPhone, then tap Add All to Calendar.");
   }
 
+  async function createFeed() {
+    setFeedBusy(true); setError(""); setMessage("");
+    const baseUrl = (import.meta as any).env?.VITE_SUPABASE_URL || (supabase as any)?.supabaseUrl;
+    if (!baseUrl) { setError("The Supabase project URL is not available in this build."); setFeedBusy(false); return; }
+    const auth = await supabase!.auth.getUser();
+    if (auth.error || !auth.data.user) { setError(auth.error?.message || "Your session could not be confirmed."); setFeedBusy(false); return; }
+    const bytes = crypto.getRandomValues(new Uint8Array(32));
+    const secret = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("");
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(secret));
+    const tokenHash = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
+    const created = await supabase!.from("calendar_feed_tokens").insert({ user_id: auth.data.user.id, token_hash: tokenHash, label: "iPhone Calendar" }).select("id").single();
+    if (created.error || !created.data) { setError(created.error?.message || "Could not create the calendar subscription."); setFeedBusy(false); return; }
+    const revoked = await supabase!.from("calendar_feed_tokens").update({ revoked_at: new Date().toISOString() }).eq("user_id", auth.data.user.id).neq("id", created.data.id).is("revoked_at", null);
+    if (revoked.error) {
+      await supabase!.from("calendar_feed_tokens").delete().eq("id", created.data.id);
+      setError(revoked.error.message); setFeedBusy(false); return;
+    }
+    const endpoint = new URL("/functions/v1/calendar-feed", baseUrl).toString() + "?token=" + encodeURIComponent(secret);
+    setFeedUrl(endpoint.replace(/^https?:/, "webcal:"));
+    setMessage("Private iPhone calendar link created. Copy or open it on your iPhone; keep the link private. It refreshes from your saved visits.");
+    setFeedBusy(false);
+  }
+
+  async function copyFeed() {
+    if (!feedUrl) return;
+    try { await navigator.clipboard.writeText(feedUrl); setMessage("Calendar subscription link copied."); }
+    catch { setError("Copy is unavailable here. Select the calendar link and copy it manually."); }
+  }
+
+  async function revokeFeed() {
+    setError(""); setMessage("");
+    const auth = await supabase!.auth.getUser();
+    if (auth.error || !auth.data.user) { setError(auth.error?.message || "Your session could not be confirmed."); return; }
+    const result = await supabase!.from("calendar_feed_tokens").update({ revoked_at: new Date().toISOString() }).eq("user_id", auth.data.user.id).is("revoked_at", null);
+    if (result.error) setError(result.error.message);
+    else { setFeedUrl(""); setMessage("The calendar subscription link has been revoked."); }
+  }
+
   return <div className="calendar-page">
     <div className="hero calendar-hero">
       <div><p className="eyebrow">VISITS & SCHEDULE</p><h1>My Calendar</h1><p className="muted">Schedule appointments, link them to a site and asset, and add them to Apple Calendar.</p></div>
@@ -151,7 +191,11 @@ export default function CalendarPage() {
       <div className="calendar-board-footer"><span>{inPeriod.length} appointment{inPeriod.length === 1 ? "" : "s"} in this view</span><span>Appointments are saved as linked site visit records.</span></div>
     </section>
 
-    <section className="calendar-ios-note"><Smartphone size={17}/><p><b>iPhone calendar:</b> Export creates an .ics file with appointment times, sites, assets, locations, and visit notes. Open it on iPhone and choose <b>Add All</b>. Re-export after edits to refresh the imported events.</p></section>
+    <section className="panel calendar-subscription-panel">
+      <div className="calendar-subscription-copy"><div className="calendar-ios-icon"><Smartphone size={17}/></div><div><h2>Connect iPhone Calendar</h2><p>Create a private calendar subscription that includes all your site appointments. Changes made here refresh in iPhone Calendar on its normal subscription schedule. You can also use the .ics export above for a one-time import.</p></div></div>
+      {feedUrl ? <div className="calendar-feed-controls"><label>Private subscription link<input readOnly value={feedUrl} onFocus={event => event.currentTarget.select()}/></label><div><button type="button" className="secondary" onClick={() => void copyFeed()}><Copy size={14}/> Copy link</button><a className="primary calendar-open-feed" href={feedUrl}><Link2 size={14}/> Open Calendar</a><button type="button" className="secondary" onClick={() => void createFeed()} disabled={feedBusy}><RefreshCw size={14}/>{feedBusy ? "Rotating…" : "Replace link"}</button><button type="button" className="text-btn calendar-revoke" onClick={() => void revokeFeed()}>Revoke</button></div></div> : <button type="button" className="secondary calendar-create-feed" onClick={() => void createFeed()} disabled={feedBusy}><Link2 size={15}/>{feedBusy ? "Creating private link…" : "Create iPhone subscription link"}</button>}
+      <small>Only the holder of this private link can view the calendar feed. Replacing or revoking it disables the previous link.</small>
+    </section>
 
     {createOpen && <div className="site-create-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setCreateOpen(false); }}>
       <section className="panel calendar-modal" role="dialog" aria-modal="true" aria-labelledby="appointment-title">
