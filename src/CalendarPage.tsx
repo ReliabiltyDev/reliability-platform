@@ -34,10 +34,12 @@ export default function CalendarPage() {
 
   async function load() {
     setLoading(true); setError("");
+    const auth = await supabase!.auth.getUser();
+    if (auth.error || !auth.data.user) { setError(auth.error?.message || "Your session could not be confirmed."); setLoading(false); return; }
     const [siteResult, assetResult, visitResult] = await Promise.all([
       supabase!.from("sites").select("id,name,state,timezone").order("name"),
       supabase!.from("assets").select("id,site_id,name,asset_tag").order("name"),
-      supabase!.from("site_visits").select("id,site_id,asset_id,visit_date,scheduled_start,scheduled_end,all_day,purpose,summary,location,created_at").order("visit_date", { ascending: true })
+      supabase!.from("site_visits").select("id,site_id,asset_id,visit_date,scheduled_start,scheduled_end,all_day,purpose,summary,location,created_at").eq("created_by", auth.data.user.id).order("visit_date", { ascending: true })
     ]);
     if (siteResult.error) setError(siteResult.error.message); else setSites((siteResult.data || []) as Site[]);
     if (assetResult.error) setError(assetResult.error.message); else setAssets((assetResult.data || []) as Asset[]);
