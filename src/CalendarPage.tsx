@@ -242,7 +242,7 @@ export default function CalendarPage() {
       <small>Only the holder of this private link can view the calendar feed. Replacing or revoking it disables the previous link.</small>
     </section>
 
-    {createOpen && <div className="site-create-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) setCreateOpen(false); }}>
+    {createOpen && <div className="site-create-overlay" role="presentation" onMouseDown={event => { if (event.target === event.currentTarget) closeAppointmentEditor(); }}>
       <section className="panel calendar-modal" role="dialog" aria-modal="true" aria-labelledby="appointment-title">
         <div className="panel-head"><div><h2 id="appointment-title">{editingVisit ? "Edit appointment" : "New appointment"}</h2><p>Appointments are linked to a site visit and can include an asset.</p></div><button type="button" className="icon" onClick={closeAppointmentEditor} aria-label="Close"><X size={18}/></button></div>
         <form className="calendar-form" onSubmit={saveVisit}>
