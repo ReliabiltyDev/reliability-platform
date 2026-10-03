@@ -103,12 +103,12 @@ function Dashboard({onNavigate}:{onNavigate:(section:string)=>void}){
    </section>
   </div>
   <ReliabilityAnalytics onNavigate={onNavigate}/>
-  <section className="panel quick"><div className="panel-head"><div><h2>Next build layer</h2><p>The live application will expand from this connected foundation.</p></div></div>
+  <section className="panel quick"><div className="panel-head"><div><h2>Workspace modules</h2><p>Open a workspace area to add records and review live reliability data.</p></div></div>
    <div className="quick-grid">
     <Quick title="Asset hierarchy" text="Site → area → line → machine → subsystem → component" onClick={()=>onNavigate("assets")}/>
     <Quick title="Failure management" text="Failures, modes, causes, downtime and RCA" onClick={()=>onNavigate("reliability")}/>
     <Quick title="Technical library" text="Specs, lubricants, documents and source references" onClick={()=>onNavigate("technical")}/>
-    <Quick title="Maximo bridge" text="CSV/Excel import first, API integration later" onClick={()=>onNavigate("maximo")}/>
+    <Quick title="Calendar & site visits" text="Appointments linked to sites and assets, with iPhone calendar sync" onClick={()=>onNavigate("calendar")}/>
    </div>
   </section>
  </div>
