@@ -161,7 +161,7 @@ export default function TechnicalLibrary() {
   const payload = {
    site_id: draft.site_id, asset_id: draft.asset_id || null, title: draft.title.trim(), category: draft.category,
    interval: draft.interval.trim() || null, safety_notes: draft.safety_notes.trim() || null, tools: draft.tools.trim() || null,
-   procedure_steps: draft.steps.split(/\\r?\\n/).map(step => step.trim()).filter(Boolean),
+   procedure_steps: draft.steps.split(/\r?\n/).map(step => step.trim()).filter(Boolean),
    measurement_specs: measurements, torque_specs: torque, belt_tension: belt,
    source_document_id: draft.source_document_id || null, source_reference: draft.source_reference.trim() || null,
    source_page: draft.source_page.trim() || null,
@@ -353,7 +353,7 @@ function TechniqueEditor({ sites, assets, documents, existing, saving, onClose, 
     </div>
     <div className="form-grid"><label>Maintenance interval<input value={draft.interval} onChange={event => set("interval", event.target.value)} placeholder="e.g. Every 2,000 operating hours"/></label><label>Tools and equipment<input value={draft.tools} onChange={event => set("tools", event.target.value)} placeholder="Torque wrench, tension meter…"/></label></div>
     <label>Safety precautions<textarea rows={3} value={draft.safety_notes} onChange={event => set("safety_notes", event.target.value)} placeholder="Isolation, PPE, stored energy, and site-specific steps"/></label>
-    <label>Procedure steps<textarea rows={6} value={draft.steps} onChange={event => set("steps", event.target.value)} placeholder={"One step per line\\n1. Isolate and verify the equipment\\n2. Inspect the belt and pulleys"} /></label>
+    <label>Procedure steps<textarea rows={6} value={draft.steps} onChange={event => set("steps", event.target.value)} placeholder={"One step per line\n1. Isolate and verify the equipment\n2. Inspect the belt and pulleys"} /></label>
 
     <div className="technique-editor-section">
      <div className="technique-editor-section-head"><div><h3>Measurement targets</h3><p>Record limits, units, and measurement method.</p></div><button type="button" className="secondary" onClick={() => set("measurements", [...draft.measurements, newMeasurement()])}><Plus size={14}/> Add measurement</button></div>
@@ -504,7 +504,7 @@ function toDraft(technique: Technique): TechniqueDraft {
  return {
   site_id: technique.site_id, asset_id: technique.asset_id || "", title: technique.title, category: technique.category,
   interval: technique.interval || "", safety_notes: technique.safety_notes || "", tools: technique.tools || "",
-  steps: technique.procedure_steps.join("\\n"),
+  steps: technique.procedure_steps.join("\n"),
   measurements: technique.measurement_specs.length ? technique.measurement_specs : [newMeasurement()],
   torque: technique.torque_specs.length ? technique.torque_specs : [newTorque()],
   belt: technique.belt_tension || blankBelt(), source_document_id: technique.source_document_id || "",
@@ -516,5 +516,5 @@ function toHttpUrl(value: string | null | undefined) {
  try { const url = new URL(value); return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : null; }
  catch { return null; }
 }
-function label(value: string) { return value.replace(/_/g, " ").replace(/\\b\\w/g, char => char.toUpperCase()); }
+function label(value: string) { return value.replace(/_/g, " ").replace(/\b\w/g, char => char.toUpperCase()); }
 function formatNumber(value: number) { return Number.isFinite(value) ? new Intl.NumberFormat(undefined, { maximumSignificantDigits: 6 }).format(value) : "—"; }
